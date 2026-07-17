@@ -23,8 +23,8 @@ supabase/
 ## Estado das fases
 
 - [x] Fase 1 — Schema + migrations + RLS
-- [ ] Fase 2 — Cliente PNCP (módulo isolado)
-- [ ] Fase 3 — Worker de coleta e matching
+- [x] Fase 2 — Cliente PNCP (módulo isolado)
+- [x] Fase 3 — Worker de coleta e matching
 - [ ] Fase 4 — Resumo IA + email
 - [ ] Fase 5 — Frontend
 
@@ -56,6 +56,32 @@ Pré-requisito: conta no [supabase.com](https://supabase.com). A CLI é usada vi
 
 5. Conferir no dashboard (Table Editor) se as tabelas `perfis`, `licitacoes` e
    `matches` existem e se o RLS aparece como habilitado nas três.
+
+## Deploy das Edge Functions (Fase 3)
+
+```powershell
+npx supabase functions deploy coletar
+npx supabase functions deploy busca-retroativa
+```
+
+Depois, criar os segredos que o agendamento (pg_cron) usa para chamar a
+function — rodar **uma vez** no SQL Editor do projeto:
+
+```sql
+select vault.create_secret('https://SEU_PROJECT_REF.supabase.co', 'project_url');
+select vault.create_secret('SUA_SERVICE_ROLE_KEY', 'service_role_key');
+```
+
+O job `licitaplus-coletar` (criado pela migration `0004`) roda a cada 30
+minutos: lê os perfis ativos, deriva o conjunto mínimo de consultas
+(UF × modalidade), coleta do PNCP e grava os matches. Para testar manualmente:
+
+```powershell
+npx supabase functions invoke coletar
+```
+
+`busca-retroativa` é chamada pelo frontend após salvar um perfil (exige o JWT
+do usuário dono do perfil) e coleta imediatamente as fatias daquele perfil.
 
 ## Regras do banco (resumo)
 
