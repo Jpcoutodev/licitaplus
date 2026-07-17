@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Inter } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Licitaplus — alertas de licitações do PNCP",
@@ -13,20 +15,7 @@ export default function LayoutRaiz({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body>
-        <header className="cabecalho">
-          <div className="container">
-            <Link href="/" className="logo">
-              Licitaplus
-            </Link>
-            <nav className="nav">
-              <Link href="/painel">Painel</Link>
-              <Link href="/login">Entrar</Link>
-            </nav>
-          </div>
-        </header>
-        <main className="container">{children}</main>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }

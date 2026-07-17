@@ -83,6 +83,42 @@ export async function buscarPaginaPropostasAbertas(
   };
 }
 
+export interface ItemContratacaoPNCP {
+  numeroItem: number;
+  descricao: string | null;
+  quantidade: number | null;
+  unidadeMedida: string | null;
+  valorUnitarioEstimado: number | null;
+  valorTotal: number | null;
+  situacaoCompraItemNome: string | null;
+}
+
+/**
+ * Busca os itens de uma contratação na API principal do PNCP, a partir do
+ * numero_controle_pncp (formato "CNPJ-1-SEQUENCIAL/ANO"). Retorna null se o
+ * número não puder ser interpretado ou o PNCP não responder — o chamador
+ * decide seguir sem os itens.
+ */
+export async function buscarItensContratacao(
+  numeroControlePncp: string,
+): Promise<ItemContratacaoPNCP[] | null> {
+  const partes = numeroControlePncp.match(/^(\d{14})-\d-(\d+)\/(\d{4})$/);
+  if (!partes) return null;
+  const [, cnpj, sequencial, ano] = partes;
+
+  const base = lerEnv("PNCP_ITENS_BASE_URL") ?? "https://pncp.gov.br/api/pncp";
+  const url =
+    `${base}/v1/orgaos/${cnpj}/compras/${ano}/${Number(sequencial)}/itens`;
+
+  try {
+    const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
+    if (!resposta.ok) return null;
+    return (await resposta.json()) as ItemContratacaoPNCP[];
+  } catch {
+    return null;
+  }
+}
+
 /** Mapeia o item bruto do PNCP para o formato interno (colunas de licitacoes). */
 export function mapearContratacao(item: ContratacaoPNCP): LicitacaoColetada {
   return {

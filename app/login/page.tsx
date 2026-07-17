@@ -57,7 +57,13 @@ export default function PaginaLogin() {
   }
 
   return (
-    <div className="cartao" style={{ maxWidth: 420, margin: "32px auto" }}>
+    <div style={{ maxWidth: 420, margin: "56px auto", padding: "0 20px" }}>
+      <p style={{ textAlign: "center", marginBottom: 20 }}>
+        <a href="/" className="logo">
+          Licita<span>plus</span>
+        </a>
+      </p>
+      <div className="cartao">
       <h2 style={{ marginBottom: 16 }}>
         {modo === "entrar" ? "Entrar" : "Criar conta"}
       </h2>
@@ -133,6 +139,7 @@ export default function PaginaLogin() {
           </>
         )}
       </p>
+      </div>
     </div>
   );
 }
