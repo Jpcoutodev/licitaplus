@@ -81,36 +81,117 @@ h3 { font-size: 16px; font-weight: 600; }
 
 .logo span { color: var(--primaria); }
 
-/* ---------- abas do painel ---------- */
+/* ---------- layout de sistema: sidebar + conteúdo ---------- */
 
-.abas {
+.layout-app {
   display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  padding-bottom: 10px;
+  min-height: 100vh;
 }
 
-.aba {
-  white-space: nowrap;
-  padding: 7px 14px;
-  border-radius: 999px;
+.sidebar {
+  width: 236px;
+  flex-shrink: 0;
+  background: var(--superficie);
+  border-right: 1px solid var(--borda);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 12px 14px;
+}
+
+.sidebar .logo {
+  display: block;
+  padding: 4px 12px 20px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.item-nav {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 10px;
   color: var(--texto-suave);
   font-weight: 500;
   font-size: 14px;
   transition: background 0.15s, color 0.15s;
 }
 
-.aba:hover {
+.item-nav svg {
+  flex-shrink: 0;
+}
+
+.item-nav:hover {
   background: var(--fundo);
   color: var(--texto);
   text-decoration: none;
 }
 
-.aba-ativa,
-.aba-ativa:hover {
+.item-nav-ativo,
+.item-nav-ativo:hover {
   background: var(--primaria-suave);
   color: var(--primaria-escura);
   font-weight: 600;
+}
+
+button.item-nav {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.sidebar-rodape {
+  border-top: 1px solid var(--borda);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+.conteudo {
+  flex: 1;
+  min-width: 0;
+}
+
+.conteudo main.container {
+  max-width: 860px;
+  padding-top: 32px;
+  padding-bottom: 64px;
+}
+
+/* telas estreitas: sidebar vira trilho de ícones */
+@media (max-width: 900px) {
+  .sidebar {
+    width: 62px;
+    padding: 14px 8px;
+  }
+
+  .sidebar .logo {
+    text-align: center;
+    padding: 4px 0 18px;
+  }
+
+  .logo-completo { display: none; }
+
+  .item-nav {
+    justify-content: center;
+    padding: 11px 0;
+  }
+
+  .texto-nav { display: none; }
+}
+
+@media (min-width: 901px) {
+  .logo-curto { display: none; }
 }
 
 main.container {
