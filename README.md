@@ -10,7 +10,7 @@ alertas por email.
 - **Supabase** — Postgres, Auth, Edge Functions, pg_cron + pg_net
 - **Next.js (Vercel)** — frontend
 - **Resend** — envio de email
-- **Anthropic (claude-haiku-4-5)** — geração dos resumos (somente via Edge Function)
+- **MiniMax (MiniMax-M2)** — geração dos resumos (somente via Edge Function; provedor isolado em `_shared/notificacao/resumo.ts`)
 
 ## Estrutura
 
@@ -25,7 +25,7 @@ supabase/
 - [x] Fase 1 — Schema + migrations + RLS
 - [x] Fase 2 — Cliente PNCP (módulo isolado)
 - [x] Fase 3 — Worker de coleta e matching
-- [ ] Fase 4 — Resumo IA + email
+- [x] Fase 4 — Resumo IA + email
 - [ ] Fase 5 — Frontend
 
 ## Como aplicar as migrations (primeira vez)
@@ -62,7 +62,19 @@ Pré-requisito: conta no [supabase.com](https://supabase.com). A CLI é usada vi
 ```powershell
 npx supabase functions deploy coletar
 npx supabase functions deploy busca-retroativa
+npx supabase functions deploy notificar
 ```
+
+Segredos das integrações (Fase 4) — nunca commitados, só em secrets do Supabase:
+
+```powershell
+npx supabase secrets set MINIMAX_API_KEY=sua_chave_minimax
+npx supabase secrets set RESEND_API_KEY=sua_chave_resend
+npx supabase secrets set RESEND_FROM_EMAIL="Licitaplus <alertas@seudominio.com.br>"
+```
+
+Opcionais (têm padrão): `MINIMAX_MODEL` (MiniMax-M2) e `MINIMAX_API_BASE_URL`
+(https://api.minimax.io/v1).
 
 Depois, criar os segredos que o agendamento (pg_cron) usa para chamar a
 function — rodar **uma vez** no SQL Editor do projeto:
