@@ -1,20 +1,16 @@
 /**
  * Edge Function `coletar` — janela periódica de coleta e matching.
  * Disparada pelo pg_cron (com service role key). Lê os perfis ativos, deriva
- * o conjunto mínimo de fatias UF × modalidade, coleta do PNCP com orçamento
- * de páginas por fatia (idempotente) e roda o matching de todos os perfis.
+ * o conjunto mínimo de fatias UF × modalidade e executa a janela de coleta:
+ * matching inicial, depois cada fatia (a partir do cursor persistido) seguida
+ * de novo matching. Idempotente — repetir nunca duplica dado nem match.
  *
  * Body opcional { "uf": "SP", "codigoModalidade": 6 } processa uma única
  * fatia (reprocessamento manual).
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import {
-  coletarFatias,
-  executarJanelaDeColeta,
-  executarMatchingPerfis,
-  lerPerfisAtivos,
-} from "../_shared/coleta.ts";
+import { executarJanelaDeColeta, lerPerfisAtivos } from "../_shared/coleta.ts";
 import type { Fatia } from "../_shared/fatias.ts";
 
 Deno.serve(async (req) => {
@@ -33,12 +29,11 @@ Deno.serve(async (req) => {
       ? { uf: corpo.uf, codigoModalidade: corpo.codigoModalidade }
       : null;
 
-    const { fatias, matching } = fatiaUnica
-      ? {
-        fatias: await coletarFatias(supabase, [fatiaUnica]),
-        matching: await executarMatchingPerfis(supabase, perfis),
-      }
-      : await executarJanelaDeColeta(supabase, perfis);
+    const { fatias, matching } = await executarJanelaDeColeta(
+      supabase,
+      perfis,
+      fatiaUnica ? [fatiaUnica] : undefined,
+    );
 
     const resumo = {
       funcao: "coletar",
@@ -46,6 +41,11 @@ Deno.serve(async (req) => {
       fatias_processadas: fatias.length,
       licitacoes_coletadas: fatias.reduce((s, f) => s + f.coletadas, 0),
       matches_novos: matching.reduce((s, m) => s + m.matches_novos, 0),
+      cursores: fatias.map((f) => ({
+        fatia: f.fatia,
+        paginas_lidas: f.paginasLidas,
+        proxima_pagina: f.pagina_cursor,
+      })),
       erros_fatias: fatias.filter((f) => f.erro).map((f) => ({
         fatia: f.fatia,
         erro: f.erro,

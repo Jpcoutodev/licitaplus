@@ -1,17 +1,22 @@
 /**
  * Edge Function `busca-retroativa` — disparo pontual após criar/alterar um
- * perfil, para o cliente já ver resultados. Coleta as fatias do próprio
- * perfil e roda o matching apenas dele.
+ * perfil, para o cliente já ver resultados. Executa uma janela de coleta só
+ * com as fatias daquele perfil e o matching dele.
  *
- * Body: { "perfil_id": "<uuid>" }. Exige JWT do usuário dono do perfil — a
- * posse é verificada lendo o perfil com o token do chamador (RLS).
+ * Chamada pelo navegador (CORS habilitado). Body: { "perfil_id": "<uuid>" }.
+ * Exige JWT do usuário dono do perfil — a posse é verificada lendo o perfil
+ * com o token do chamador (RLS).
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { coletarFatias, executarMatchingPerfis } from "../_shared/coleta.ts";
-import { derivarFatias, type PerfilColeta } from "../_shared/fatias.ts";
+import { executarJanelaDeColeta } from "../_shared/coleta.ts";
+import type { PerfilColeta } from "../_shared/fatias.ts";
+import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  const preflight = respostaPreflight(req);
+  if (preflight) return preflight;
+
   const inicio = Date.now();
 
   try {
@@ -46,8 +51,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const fatias = await coletarFatias(supabaseWorker, derivarFatias([perfil]));
-    const matching = await executarMatchingPerfis(supabaseWorker, [perfil]);
+    const { fatias, matching } = await executarJanelaDeColeta(
+      supabaseWorker,
+      [perfil],
+    );
 
     const resumo = {
       funcao: "busca-retroativa",
@@ -76,6 +83,6 @@ Deno.serve(async (req) => {
 function respostaJson(corpo: unknown, status: number): Response {
   return new Response(JSON.stringify(corpo), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...CABECALHOS_CORS, "Content-Type": "application/json" },
   });
 }

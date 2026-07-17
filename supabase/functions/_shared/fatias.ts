@@ -77,7 +77,11 @@ const GRUPOS_SINONIMOS: string[][] = [
 
 /**
  * Expande a lista de palavras-chave do perfil com os sinônimos conhecidos,
- * sem duplicatas e preservando os termos originais.
+ * sem duplicatas e preservando os termos originais. Um grupo é aplicado
+ * quando a palavra-chave é igual a um termo do grupo OU o contém como
+ * palavra inteira (ex.: "produtos de limpeza" ativa o grupo de "limpeza") —
+ * palavras compostas exigem todas as palavras no matching, então a expansão
+ * amplia o alcance sem o usuário precisar adivinhar o jargão dos editais.
  */
 export function expandirComSinonimos(palavrasChave: string[]): string[] {
   const termos = new Set<string>();
@@ -87,8 +91,13 @@ export function expandirComSinonimos(palavrasChave: string[]): string[] {
     if (!normalizada) continue;
     termos.add(normalizada);
 
+    const palavrasDoTermo = normalizada.split(/\s+/);
     for (const grupo of GRUPOS_SINONIMOS) {
-      if (grupo.includes(normalizada)) {
+      const ativa = grupo.some(
+        (sinonimo) =>
+          sinonimo === normalizada || palavrasDoTermo.includes(sinonimo),
+      );
+      if (ativa) {
         for (const sinonimo of grupo) termos.add(sinonimo);
       }
     }

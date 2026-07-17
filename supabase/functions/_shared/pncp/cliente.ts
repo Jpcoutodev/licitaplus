@@ -7,7 +7,7 @@
  */
 
 import { lerEnv } from "../env.ts";
-import { fetchWithRetry, sleep } from "../http.ts";
+import { fetchWithRetry } from "../http.ts";
 import type {
   ContratacaoPNCP,
   LicitacaoColetada,
@@ -17,8 +17,9 @@ import type {
 // O endpoint /contratacoes/proposta limita o tamanho de página a 50 (valores
 // acima disso retornam HTTP 400 "Tamanho de página inválido").
 const TAMANHO_PAGINA_MAXIMO = 50;
-/** Coletor educado: pausa entre chamadas de página (a API não documenta rate limit). */
-const PAUSA_ENTRE_PAGINAS_MS = 500;
+// O PNCP pode levar dezenas de segundos por página em consultas com horizonte
+// longo; timeout folgado e menos tentativas para não estourar a invocação.
+const RETRY_PNCP = { timeoutMs: 60_000, tentativas: 2 };
 
 function urlBasePncp(): string {
   return lerEnv("PNCP_API_BASE_URL") ?? "https://pncp.gov.br/api/consulta";
@@ -36,7 +37,6 @@ export interface PaginaContratacoes {
   totalPaginas: number;
   paginasRestantes: number;
 }
-
 /** Formata uma data no formato yyyyMMdd exigido pelo PNCP. */
 export function formatarDataPncp(data: Date): string {
   return data.toISOString().slice(0, 10).replaceAll("-", "");
@@ -59,7 +59,7 @@ export async function buscarPaginaPropostasAbertas(
     );
   }
 
-  const resposta = await fetchWithRetry(url);
+  const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
 
   // O PNCP responde 204 quando a consulta não tem resultados.
   if (resposta.status === 204) {
@@ -81,28 +81,6 @@ export async function buscarPaginaPropostasAbertas(
     totalPaginas: corpo.totalPaginas ?? 0,
     paginasRestantes: corpo.paginasRestantes ?? 0,
   };
-}
-
-/**
- * Busca todas as páginas de uma consulta, com pausa entre chamadas.
- * maxPaginas limita o trabalho por invocação (Edge Functions têm timeout curto).
- */
-export async function buscarTodasPropostasAbertas(
-  filtro: FiltroContratacoes,
-  maxPaginas = 20,
-): Promise<LicitacaoColetada[]> {
-  const itens: LicitacaoColetada[] = [];
-  let pagina = 1;
-
-  while (pagina <= maxPaginas) {
-    const resultado = await buscarPaginaPropostasAbertas(filtro, pagina);
-    itens.push(...resultado.itens);
-    if (resultado.paginasRestantes <= 0) break;
-    pagina++;
-    await sleep(PAUSA_ENTRE_PAGINAS_MS);
-  }
-
-  return itens;
 }
 
 /** Mapeia o item bruto do PNCP para o formato interno (colunas de licitacoes). */

@@ -2,6 +2,14 @@
  * Núcleo da coleta e do matching, compartilhado pelas functions `coletar`
  * (cron) e `busca-retroativa` (disparo pontual por perfil). Toda escrita usa
  * o client service role; toda leitura do PNCP passa pelo cliente isolado.
+ *
+ * Robustez contra a lentidão do PNCP e o timeout curto de Edge Functions:
+ *  - cursor de paginação persistente por fatia (coleta_progresso): cada
+ *    janela do cron continua de onde a anterior parou;
+ *  - orçamento de tempo por invocação: paramos de iniciar trabalho novo
+ *    antes de a function ser encerrada à força;
+ *  - matching roda antes e depois de cada fatia: progresso parcial já
+ *    vira match para o usuário.
  */
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -20,9 +28,11 @@ import {
 
 /** Horizonte de dataFinal: propostas que encerram em até 90 dias. */
 const HORIZONTE_DIAS = 90;
-/** Orçamento de páginas por fatia por invocação (Edge Functions têm timeout curto). */
-const MAX_PAGINAS_POR_FATIA = 10;
-const PAUSA_ENTRE_PAGINAS_MS = 500;
+/** Orçamento de páginas por fatia por invocação. */
+const MAX_PAGINAS_POR_FATIA = 5;
+/** Orçamento de tempo da invocação: não iniciar trabalho novo além disso. */
+const ORCAMENTO_MS = 100_000;
+const PAUSA_ENTRE_PAGINAS_MS = 300;
 /** Tamanho do lote de upsert no banco. */
 const LOTE_UPSERT = 200;
 
@@ -30,7 +40,7 @@ export interface ResultadoFatia {
   fatia: Fatia;
   coletadas: number;
   paginasLidas: number;
-  paginasRestantes: number;
+  pagina_cursor: number;
   erro?: string;
 }
 
@@ -75,62 +85,91 @@ async function gravarLicitacoes(
   }
 }
 
+/** Na tabela de progresso, fatia "todas as modalidades" é modalidade 0. */
+function chaveProgresso(fatia: Fatia): { uf: string; modalidade: number } {
+  return { uf: fatia.uf, modalidade: fatia.codigoModalidade ?? 0 };
+}
+
+async function lerPaginaInicial(
+  supabase: SupabaseClient,
+  fatia: Fatia,
+): Promise<number> {
+  const chave = chaveProgresso(fatia);
+  const { data } = await supabase
+    .from("coleta_progresso")
+    .select("proxima_pagina")
+    .eq("uf", chave.uf)
+    .eq("modalidade", chave.modalidade)
+    .maybeSingle();
+  return data?.proxima_pagina ?? 1;
+}
+
+async function gravarProgresso(
+  supabase: SupabaseClient,
+  fatia: Fatia,
+  proximaPagina: number,
+): Promise<void> {
+  const chave = chaveProgresso(fatia);
+  await supabase.from("coleta_progresso").upsert({
+    ...chave,
+    proxima_pagina: proximaPagina,
+    atualizado_em: new Date().toISOString(),
+  });
+}
+
 /**
- * Coleta uma fatia (UF × modalidade): pagina o PNCP até o orçamento de
- * páginas e grava as licitações. Idempotente — repetir não duplica nada.
+ * Coleta uma fatia a partir do cursor persistido, até o orçamento de páginas
+ * ou de tempo. Ao esgotar a varredura, o cursor volta à página 1 (a próxima
+ * janela recomeça e capta o que for novo). Idempotente.
  */
 export async function coletarFatia(
   supabase: SupabaseClient,
   fatia: Fatia,
+  prazoMs: number,
 ): Promise<ResultadoFatia> {
+  const paginaInicial = await lerPaginaInicial(supabase, fatia);
   const resultado: ResultadoFatia = {
     fatia,
     coletadas: 0,
     paginasLidas: 0,
-    paginasRestantes: 0,
+    pagina_cursor: paginaInicial,
   };
 
-  try {
-    const filtro = {
-      dataFinal: dataFinalHorizonte(),
-      uf: fatia.uf,
-      codigoModalidade: fatia.codigoModalidade,
-    };
+  const filtro = {
+    dataFinal: dataFinalHorizonte(),
+    uf: fatia.uf,
+    codigoModalidade: fatia.codigoModalidade,
+  };
 
-    let pagina = 1;
-    while (pagina <= MAX_PAGINAS_POR_FATIA) {
-      const { itens, paginasRestantes } = await buscarPaginaPropostasAbertas(
-        filtro,
-        pagina,
-      );
+  let pagina = paginaInicial;
+  try {
+    while (
+      resultado.paginasLidas < MAX_PAGINAS_POR_FATIA &&
+      Date.now() < prazoMs
+    ) {
+      const { itens, totalPaginas, paginasRestantes } =
+        await buscarPaginaPropostasAbertas(filtro, pagina);
       await gravarLicitacoes(supabase, itens);
 
       resultado.coletadas += itens.length;
-      resultado.paginasLidas = pagina;
-      resultado.paginasRestantes = paginasRestantes;
+      resultado.paginasLidas++;
 
-      if (paginasRestantes <= 0) break;
+      // Varredura concluída (ou cursor além do fim): recomeça do início.
+      if (paginasRestantes <= 0 || pagina >= totalPaginas) {
+        pagina = 1;
+        break;
+      }
       pagina++;
       await sleep(PAUSA_ENTRE_PAGINAS_MS);
     }
   } catch (erro) {
-    // Falha em uma fatia não derruba o lote; a próxima janela recupera.
+    // Falha em uma fatia não derruba o lote; o cursor preserva o avanço feito.
     resultado.erro = erro instanceof Error ? erro.message : String(erro);
   }
 
+  resultado.pagina_cursor = pagina;
+  await gravarProgresso(supabase, fatia, pagina);
   return resultado;
-}
-
-/** Coleta todas as fatias em sequência (coletor educado: uma por vez). */
-export async function coletarFatias(
-  supabase: SupabaseClient,
-  fatias: Fatia[],
-): Promise<ResultadoFatia[]> {
-  const resultados: ResultadoFatia[] = [];
-  for (const fatia of fatias) {
-    resultados.push(await coletarFatia(supabase, fatia));
-  }
-  return resultados;
 }
 
 /** Roda o matching de cada perfil (termos expandidos com sinônimos). */
@@ -156,13 +195,46 @@ export async function executarMatchingPerfis(
   return resultados;
 }
 
-/** Fluxo completo de uma janela de coleta: fatias -> gravação -> matching. */
+function somarMatching(
+  acumulado: Map<string, ResultadoMatching>,
+  rodada: ResultadoMatching[],
+): void {
+  for (const resultado of rodada) {
+    const atual = acumulado.get(resultado.perfil_id);
+    if (atual) {
+      atual.matches_novos += resultado.matches_novos;
+      atual.erro = resultado.erro ?? atual.erro;
+    } else {
+      acumulado.set(resultado.perfil_id, { ...resultado });
+    }
+  }
+}
+
+/**
+ * Janela de coleta: matching inicial (casa o que já está no banco), depois
+ * cada fatia seguida de novo matching — assim progresso parcial já vira
+ * match mesmo que a invocação seja encerrada no meio.
+ */
 export async function executarJanelaDeColeta(
   supabase: SupabaseClient,
   perfis: PerfilColeta[],
+  fatiasEscolhidas?: Fatia[],
 ): Promise<{ fatias: ResultadoFatia[]; matching: ResultadoMatching[] }> {
-  const fatias = derivarFatias(perfis);
-  const resultadosFatias = await coletarFatias(supabase, fatias);
-  const resultadosMatching = await executarMatchingPerfis(supabase, perfis);
-  return { fatias: resultadosFatias, matching: resultadosMatching };
+  const prazoMs = Date.now() + ORCAMENTO_MS;
+  const fatias = fatiasEscolhidas ?? derivarFatias(perfis);
+
+  const acumulado = new Map<string, ResultadoMatching>();
+  somarMatching(acumulado, await executarMatchingPerfis(supabase, perfis));
+
+  const resultadosFatias: ResultadoFatia[] = [];
+  for (const fatia of fatias) {
+    if (Date.now() >= prazoMs) break;
+    const resultado = await coletarFatia(supabase, fatia, prazoMs);
+    resultadosFatias.push(resultado);
+    if (resultado.coletadas > 0) {
+      somarMatching(acumulado, await executarMatchingPerfis(supabase, perfis));
+    }
+  }
+
+  return { fatias: resultadosFatias, matching: [...acumulado.values()] };
 }
