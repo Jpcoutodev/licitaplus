@@ -15,10 +15,24 @@ alertas por email.
 ## Estrutura
 
 ```
+app/            ← frontend Next.js (landing, login, painel, perfil)
+lib/            ← validação (zod), limites por plano, clients Supabase
 supabase/
   migrations/   ← schema versionado (nunca alterar o banco manualmente)
   functions/    ← Edge Functions (coleta, matching, notificação)
 ```
+
+## Rodar o frontend
+
+```powershell
+copy .env.example .env.local   # e preencha com URL e anon key do projeto
+npm install
+npm run dev                    # http://localhost:3000
+```
+
+Deploy na Vercel: importar o repositório e definir as duas variáveis
+`NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`. A service role
+key **nunca** entra no frontend.
 
 ## Estado das fases
 
@@ -26,7 +40,7 @@ supabase/
 - [x] Fase 2 — Cliente PNCP (módulo isolado)
 - [x] Fase 3 — Worker de coleta e matching
 - [x] Fase 4 — Resumo IA + email
-- [ ] Fase 5 — Frontend
+- [x] Fase 5 — Frontend
 
 ## Como aplicar as migrations (primeira vez)
 
