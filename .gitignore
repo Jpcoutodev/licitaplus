@@ -1,0 +1,20 @@
+# dependências
+node_modules/
+
+# next.js
+.next/
+out/
+
+# ambiente — nunca commitar chaves
+.env
+.env.*
+!.env.example
+
+# supabase (artefatos locais da CLI)
+supabase/.temp/
+supabase/.branches/
+
+# sistema/editor
+.DS_Store
+Thumbs.db
+*.log
