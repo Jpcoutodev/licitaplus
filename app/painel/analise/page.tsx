@@ -486,8 +486,8 @@ function ChatAnalise() {
                     onClick={() => analisarArquivo(arquivo)}
                   >
                     {analisandoSequencial === arquivo.sequencialDocumento
-                      ? "Analisando..."
-                      : "Analisar com IA"}
+                      ? "Anexando..."
+                      : "Anexar ao contexto da conversa"}
                   </button>
                 </span>
               </div>
