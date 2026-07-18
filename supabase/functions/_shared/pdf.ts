@@ -5,8 +5,12 @@
 
 import { extractText, getDocumentProxy } from "npm:unpdf@1.6.2";
 
-/** Limite do texto entregue à IA — mantém o custo por conversa sob controle. */
-export const MAX_CARACTERES_DOCUMENTO = 60_000;
+/**
+ * Teto da extração (não do que vai à IA): documentos maiores que isso têm o
+ * final descartado. O quanto vai à IA por pergunta é decidido pela função de
+ * análise (documento inteiro ou trechos recuperados).
+ */
+export const MAX_CARACTERES_DOCUMENTO = 1_500_000;
 
 export interface TextoExtraido {
   texto: string;

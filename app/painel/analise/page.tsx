@@ -19,9 +19,10 @@ interface MensagemChat {
 
 interface DocumentoAnexado {
   nome: string;
-  texto: string;
-  truncado: boolean;
+  caracteres: number;
   paginas: number;
+  /** inteiro = a IA vê tudo; trechos = documento grande, busca por pergunta. */
+  modo: "inteiro" | "trechos";
 }
 
 interface ArquivoLicitacao {
@@ -31,13 +32,16 @@ interface ArquivoLicitacao {
   url: string;
 }
 
-interface TextoExtraidoResposta {
+interface DocumentoGravadoResposta {
   nome: string;
-  texto: string;
-  truncado: boolean;
   paginas: number;
+  caracteres_totais: number;
+  modo: "inteiro" | "trechos";
   erro?: string;
 }
+
+/** Acima deste tamanho o servidor trabalha por trechos (mesmo valor de lá). */
+const LIMITE_DOCUMENTO_INTEIRO = 150_000;
 
 /** PDF até ~6 MB (o texto extraído é limitado no servidor). */
 const MAX_BYTES_PDF = 6 * 1024 * 1024;
@@ -117,7 +121,7 @@ function ChatAnalise() {
     const supabase = criarClientNavegador();
     let consulta = supabase
       .from("conversas_ia")
-      .select("id, documento_nome, documento_texto");
+      .select("id, documento_nome, documento_caracteres");
     consulta = licitacao
       ? consulta.eq("licitacao_id", licitacao)
       : consulta.is("licitacao_id", null);
@@ -125,12 +129,14 @@ function ChatAnalise() {
 
     if (conversa) {
       setConversaId(conversa.id);
-      if (conversa.documento_texto && conversa.documento_nome) {
+      if (conversa.documento_nome && conversa.documento_caracteres) {
         setDocumento({
           nome: conversa.documento_nome,
-          texto: conversa.documento_texto,
-          truncado: false,
+          caracteres: conversa.documento_caracteres,
           paginas: 0,
+          modo: conversa.documento_caracteres > LIMITE_DOCUMENTO_INTEIRO
+            ? "trechos"
+            : "inteiro",
         });
       }
       const { data: historico } = await supabase
@@ -203,23 +209,13 @@ function ChatAnalise() {
     return data.id;
   }
 
-  /** Grava o documento extraído na conversa e no estado do chat. */
-  async function salvarDocumento(extraido: TextoExtraidoResposta) {
-    const supabase = criarClientNavegador();
-    const id = await garantirConversa();
-    await supabase
-      .from("conversas_ia")
-      .update({
-        documento_nome: extraido.nome,
-        documento_texto: extraido.texto,
-      })
-      .eq("id", id);
-
+  /** Atualiza o estado do chat com o documento gravado no servidor. */
+  function refletirDocumento(gravado: DocumentoGravadoResposta) {
     setDocumento({
-      nome: extraido.nome,
-      texto: extraido.texto,
-      truncado: extraido.truncado,
-      paginas: extraido.paginas,
+      nome: gravado.nome,
+      caracteres: gravado.caracteres_totais,
+      paginas: gravado.paginas,
+      modo: gravado.modo,
     });
   }
 
@@ -235,14 +231,15 @@ function ChatAnalise() {
           acao: "analisar_arquivo",
           licitacao_id: licitacaoId,
           sequencial_documento: arquivo.sequencialDocumento,
+          conversa_id: await garantirConversa(),
         },
       });
       if (error) throw new Error(error.message);
-      const extraido = data as TextoExtraidoResposta;
-      if (extraido?.erro || !extraido?.texto) {
-        throw new Error(extraido?.erro ?? "não foi possível ler o arquivo");
+      const gravado = data as DocumentoGravadoResposta;
+      if (gravado?.erro || !gravado?.nome) {
+        throw new Error(gravado?.erro ?? "não foi possível ler o arquivo");
       }
-      await salvarDocumento(extraido);
+      refletirDocumento(gravado);
     } catch (excecao) {
       setErro(
         excecao instanceof Error
@@ -274,20 +271,18 @@ function ChatAnalise() {
       const base64 = await lerComoBase64(arquivo);
       const supabase = criarClientNavegador();
       const { data, error } = await supabase.functions.invoke("analise-ia", {
-        body: { pdf_base64: base64, pdf_nome: arquivo.name },
+        body: {
+          pdf_base64: base64,
+          pdf_nome: arquivo.name,
+          conversa_id: await garantirConversa(),
+        },
       });
       if (error) throw new Error(error.message);
-      const extraido = data as {
-        nome: string;
-        texto: string;
-        truncado: boolean;
-        paginas: number;
-        erro?: string;
-      };
-      if (extraido?.erro || !extraido?.texto) {
-        throw new Error(extraido?.erro ?? "não foi possível ler o PDF");
+      const gravado = data as DocumentoGravadoResposta;
+      if (gravado?.erro || !gravado?.nome) {
+        throw new Error(gravado?.erro ?? "não foi possível ler o PDF");
       }
-      await salvarDocumento(extraido);
+      refletirDocumento(gravado);
     } catch (excecao) {
       setErro(
         excecao instanceof Error
@@ -305,8 +300,17 @@ function ChatAnalise() {
       const supabase = criarClientNavegador();
       await supabase
         .from("conversas_ia")
-        .update({ documento_nome: null, documento_texto: null })
+        .update({
+          documento_nome: null,
+          documento_texto: null,
+          documento_caracteres: null,
+          documento_cabecalho: null,
+        })
         .eq("id", conversaId);
+      await supabase
+        .from("documento_trechos")
+        .delete()
+        .eq("conversa_id", conversaId);
     }
   }
 
@@ -340,12 +344,11 @@ function ChatAnalise() {
 
     try {
       const supabase = criarClientNavegador();
+      const id = await garantirConversa();
       const { data, error } = await supabase.functions.invoke("analise-ia", {
         body: {
+          conversa_id: id,
           licitacao_id: licitacaoId || undefined,
-          documento: documento
-            ? { nome: documento.nome, texto: documento.texto }
-            : undefined,
           mensagens: novasMensagens.slice(-MAX_MENSAGENS_PARA_IA),
         },
       });
@@ -359,7 +362,6 @@ function ChatAnalise() {
       ]);
 
       // Persiste a troca (pergunta + resposta) na conversa.
-      const id = await garantirConversa();
       await supabase.from("mensagens_ia").insert([
         { conversa_id: id, role: "user", conteudo: pergunta },
         { conversa_id: id, role: "assistant", conteudo: resposta },
@@ -478,7 +480,9 @@ function ChatAnalise() {
             <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span className="etiqueta etiqueta-nova">
                 📄 {documento.nome}
-                {documento.paginas > 0 ? ` (${documento.paginas} pág.)` : ""}
+                {documento.paginas > 0
+                  ? ` (${documento.paginas} pág.)`
+                  : ` (${Math.round(documento.caracteres / 1000)} mil caracteres)`}
               </span>
               <button
                 type="button"
@@ -500,9 +504,10 @@ function ChatAnalise() {
               </button>
             </p>
           )}
-          {documento?.truncado && (
+          {documento?.modo === "trechos" && (
             <p className="ajuda">
-              Documento longo: a IA recebe as primeiras ~60 mil letras.
+              Documento grande: a IA lê o início e busca os trechos relevantes
+              a cada pergunta — o documento inteiro está indexado.
             </p>
           )}
         </div>
