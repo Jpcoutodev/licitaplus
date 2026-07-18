@@ -41,7 +41,7 @@ interface DocumentoGravadoResposta {
 }
 
 /** Acima deste tamanho o servidor trabalha por trechos (mesmo valor de lá). */
-const LIMITE_DOCUMENTO_INTEIRO = 150_000;
+const LIMITE_DOCUMENTO_INTEIRO = 300_000;
 
 /** PDF até ~6 MB (o texto extraído é limitado no servidor). */
 const MAX_BYTES_PDF = 6 * 1024 * 1024;

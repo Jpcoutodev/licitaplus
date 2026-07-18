@@ -24,7 +24,7 @@ import {
   listarArquivosContratacao,
 } from "../_shared/pncp/cliente.ts";
 import { extrairTextoPdf, extrairTextoPdfBytes } from "../_shared/pdf.ts";
-import { dividirEmTrechos } from "../_shared/trechos.ts";
+import { dividirEmTrechos, extrairSumario } from "../_shared/trechos.ts";
 import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
 
 const MAX_MENSAGENS = 16;
@@ -35,8 +35,10 @@ const MAX_FAVORITAS_NO_CONTEXTO = 15;
 const MAX_BASE64_PDF = 9_000_000;
 /** Limite de download de arquivo do PNCP para análise. */
 const MAX_BYTES_ARQUIVO_PNCP = 12_000_000;
-/** Documento até este tamanho vai INTEIRO para a IA; acima, vira trechos. */
-const LIMITE_DOCUMENTO_INTEIRO = 150_000;
+/** Documento até este tamanho vai INTEIRO para a IA; acima, vira trechos.
+ *  M3 comporta ~400k chars num pedido; 300k deixa margem para itens,
+ *  favoritas, sumário e histórico. */
+const LIMITE_DOCUMENTO_INTEIRO = 300_000;
 /** Início do documento sempre enviado no modo trechos. */
 const TAMANHO_CABECALHO = 20_000;
 const MAX_TRECHOS_POR_PERGUNTA = 12;
@@ -66,7 +68,13 @@ interface DocumentoContexto {
   caracteres: number;
   modo: "inteiro" | "trechos";
   conteudo: string;
+  sumario: string;
   trechos: Array<{ ordem: number; conteudo: string }>;
+}
+
+interface ArquivoLista {
+  titulo: string | null;
+  tipoDocumentoNome: string | null;
 }
 
 const COLUNAS_CONTEXTO =
@@ -265,15 +273,25 @@ async function modoConversa(
     carregarDocumento(supabase, conversaId, ultimaPergunta),
   ]);
 
-  const itens = selecionada
-    ? await buscarItensContratacao(selecionada.numero_controle_pncp)
-    : null;
+  // Itens e arquivos da licitação selecionada (best-effort, em paralelo).
+  const [itens, arquivos] = selecionada
+    ? await Promise.all([
+      buscarItensContratacao(selecionada.numero_controle_pncp),
+      listarArquivosContratacao(selecionada.numero_controle_pncp),
+    ])
+    : [null, null];
 
   const resposta = await conversarComIA(
     [
       {
         role: "system",
-        content: montarContexto(selecionada, itens, favoritas, documento),
+        content: montarContexto(
+          selecionada,
+          itens,
+          arquivos,
+          favoritas,
+          documento,
+        ),
       },
       ...mensagens,
     ],
@@ -335,6 +353,7 @@ async function gravarDocumentoNaConversa(
       documento_texto: texto,
       documento_caracteres: texto.length,
       documento_cabecalho: texto.slice(0, TAMANHO_CABECALHO),
+      documento_sumario: extrairSumario(texto),
     })
     .eq("id", conversaId);
   if (erroConversa) {
@@ -387,7 +406,9 @@ async function carregarDocumento(
 
   const { data: conversa } = await supabase
     .from("conversas_ia")
-    .select("documento_nome, documento_caracteres, documento_cabecalho")
+    .select(
+      "documento_nome, documento_caracteres, documento_cabecalho, documento_sumario",
+    )
     .eq("id", conversaId)
     .maybeSingle();
   if (!conversa?.documento_nome || !conversa.documento_caracteres) return null;
@@ -395,6 +416,7 @@ async function carregarDocumento(
   const base = {
     nome: conversa.documento_nome as string,
     caracteres: conversa.documento_caracteres as number,
+    sumario: (conversa.documento_sumario as string) ?? "",
   };
 
   if (base.caracteres <= LIMITE_DOCUMENTO_INTEIRO) {
@@ -498,35 +520,42 @@ function formatarItens(itens: ItemContratacaoPNCP[]): string {
     .join("\n");
 }
 
-const INSTRUCOES_APP = `## Como o Licitaplus funciona (a interface REAL que o usuário vê)
-Você é a IA do Licitaplus e está na aba "Análise IA". Os únicos recursos da
-interface são: um seletor de licitação (lista as favoritas do usuário); a
-seção "Arquivos da licitação no PNCP" com botões "Baixar" e "Analisar com IA"
-em cada arquivo (é assim que se anexa um edital/anexo desta licitação); o
-botão "Anexar PDF" para arquivos de fora do PNCP; e o botão "Limpar conversa".
-Cada conversa comporta UM documento por vez — analisar/anexar outro substitui
-o atual. NÃO existe ícone de clipe, upload em partes nem colar texto como
-anexo: nunca invente elementos de interface. Se o usuário precisar de um
-documento que não está no contexto, oriente-o a usar "Analisar com IA" no
-arquivo correspondente da lista, ou "Anexar PDF" se for arquivo próprio.`;
+const INSTRUCOES = `Você é um consultor sênior em licitações públicas brasileiras (Lei 14.133/2021)
+atendendo donos de pequenas e médias empresas leigos no assunto, dentro do app
+Licitaplus (aba "Análise IA").
+
+COMO RESPONDER:
+- Vá direto ao ponto. Responda a pergunta primeiro, com orientação prática.
+- NÃO explique como você "lê o documento", "busca por palavras-chave" ou quais
+  são suas limitações técnicas. O usuário não quer saber do mecanismo.
+- NÃO mande o usuário "olhar a seção Arquivos da licitação no PNCP" nem
+  conferir a interface: você já recebe abaixo a lista de arquivos e o sumário
+  do documento. Use-os para responder você mesmo.
+- Nunca invente valores, datas ou exigências. Se um número específico não
+  estiver no material fornecido, diga em UMA frase que não localizou aquele
+  dado e responda o que der.
+
+PERGUNTAS SOBRE A ESTRUTURA DO DOCUMENTO (ex.: "tem o Anexo I?", "o Termo de
+Referência está aqui?"): responda com base na LISTA DE ARQUIVOS e no SUMÁRIO
+do documento abaixo — os dois juntos dizem se um anexo/TR está embutido no
+edital ou é um arquivo à parte. Dê uma resposta conclusiva, não evasiva.
+NÃO existe ícone de clipe, upload em partes ou colar texto: nunca invente
+elementos de interface. Cada conversa tem UM documento por vez.`;
+
+function formatarArquivos(arquivos: ArquivoLista[]): string {
+  return arquivos
+    .map((a) => `- ${a.titulo ?? "sem título"}${a.tipoDocumentoNome ? ` (${a.tipoDocumentoNome})` : ""}`)
+    .join("\n");
+}
 
 function montarContexto(
   selecionada: LicitacaoContexto | null,
   itens: ItemContratacaoPNCP[] | null,
+  arquivos: ArquivoLista[] | null,
   favoritas: LicitacaoContexto[],
   documento: DocumentoContexto | null,
 ): string {
-  const blocos = [
-    "Você é um consultor sênior em licitações públicas brasileiras (Lei 14.133/2021) " +
-    "que atende donos de pequenas e médias empresas leigos no assunto. Responda em " +
-    "português simples e direto, com orientação prática: o que está sendo comprado, " +
-    "se vale a pena participar, prazos, documentação típica e riscos. Use SOMENTE as " +
-    "informações fornecidas abaixo e conhecimento geral sobre licitações; se não " +
-    "souber algo específico do edital, diga claramente que a informação não está " +
-    "disponível e onde o usuário pode encontrá-la. Nunca invente valores, datas ou " +
-    "exigências.",
-    INSTRUCOES_APP,
-  ];
+  const blocos = [INSTRUCOES];
 
   if (selecionada) {
     blocos.push(`## Licitação em análise\n${formatarLicitacao(selecionada)}`);
@@ -534,41 +563,55 @@ function montarContexto(
       blocos.push(
         `## Itens do edital (via API do PNCP)\n${formatarItens(itens)}`,
       );
+    }
+    if (arquivos && arquivos.length > 0) {
+      blocos.push(
+        `## Arquivos publicados desta licitação no PNCP (${arquivos.length})\n` +
+          formatarArquivos(arquivos) +
+          "\n\nEsta é a lista COMPLETA de arquivos oficiais. Se o usuário " +
+          "perguntar se há um Termo de Referência ou anexo separado, baseie-se " +
+          "nesta lista: se não há um arquivo com esse nome, o conteúdo está " +
+          "embutido no edital (confira o sumário do documento).",
+      );
     } else {
       blocos.push(
-        "## Itens do edital\nNão foi possível obter os itens na API do PNCP agora.",
+        "## Arquivos publicados desta licitação no PNCP\nNão foi possível obter a lista de arquivos no PNCP agora.",
       );
     }
   } else {
     blocos.push(
-      "## Licitação em análise\nNenhuma licitação selecionada — oriente o usuário a escolher uma favorita para análise detalhada, mas responda perguntas gerais normalmente.",
+      "## Licitação em análise\nNenhuma licitação selecionada — responda perguntas gerais normalmente e convide o usuário a escolher uma favorita para análise detalhada.",
     );
   }
 
   if (documento) {
+    if (documento.sumario) {
+      blocos.push(
+        `## Sumário do documento anexado (seções/títulos detectados)\n${documento.sumario}`,
+      );
+    }
     if (documento.modo === "inteiro") {
       blocos.push(
         `## Documento anexado: "${documento.nome}" (COMPLETO, ${documento.caracteres} caracteres)\n` +
-          "Trate este documento como fonte primária ao responder sobre exigências, prazos e condições.\n\n" +
+          "Este é o texto integral. Trate-o como fonte primária sobre exigências, prazos e condições.\n\n" +
           documento.conteudo,
       );
     } else {
       blocos.push(
-        `## Documento anexado: "${documento.nome}" (${documento.caracteres} caracteres — GRANDE)\n` +
-          "Você está vendo o INÍCIO do documento e os trechos mais relevantes " +
-          "à última pergunta, recuperados por busca textual. O restante existe " +
-          "mas não está neste contexto: se a informação pedida não aparecer " +
-          "abaixo, diga que ela pode estar em outra seção e peça ao usuário " +
-          "para perguntar usando os termos que o edital usaria (ex.: 'garantia " +
-          "contratual', 'qualificação técnica'). NÃO afirme que o documento " +
-          "está incompleto ou truncado — ele está indexado por inteiro.\n\n" +
+        `## Documento anexado: "${documento.nome}" (${documento.caracteres} caracteres — indexado por inteiro)\n` +
+          "Abaixo estão o INÍCIO do documento e os trechos mais relevantes à " +
+          "última pergunta. O documento inteiro está indexado (veja o sumário " +
+          "acima para a estrutura). Se um dado específico não aparecer nos " +
+          "trechos, diga em uma frase que não o localizou e sugira reperguntar " +
+          "com o termo exato do edital. NÃO diga que o documento está truncado " +
+          "ou incompleto — não está.\n\n" +
           `### Início do documento\n${documento.conteudo}\n\n` +
           `### Trechos relevantes à última pergunta\n` +
           (documento.trechos.length > 0
             ? documento.trechos
               .map((t) => `[trecho ${t.ordem}]\n${t.conteudo}`)
               .join("\n\n")
-            : "(a busca não encontrou trechos para os termos da pergunta — sugira termos mais específicos)"),
+            : "(a busca não encontrou trechos para os termos desta pergunta)"),
       );
     }
   }
