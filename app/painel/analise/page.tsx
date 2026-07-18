@@ -24,6 +24,21 @@ interface DocumentoAnexado {
   paginas: number;
 }
 
+interface ArquivoLicitacao {
+  sequencialDocumento: number;
+  titulo: string | null;
+  tipoDocumentoNome: string | null;
+  url: string;
+}
+
+interface TextoExtraidoResposta {
+  nome: string;
+  texto: string;
+  truncado: boolean;
+  paginas: number;
+  erro?: string;
+}
+
 /** PDF até ~6 MB (o texto extraído é limitado no servidor). */
 const MAX_BYTES_PDF = 6 * 1024 * 1024;
 /** A IA recebe só o fim da conversa; o histórico completo fica no banco. */
@@ -63,6 +78,11 @@ function ChatAnalise() {
   const [erro, setErro] = useState<string | null>(null);
   const [documento, setDocumento] = useState<DocumentoAnexado | null>(null);
   const [extraindo, setExtraindo] = useState(false);
+  const [arquivos, setArquivos] = useState<ArquivoLicitacao[]>([]);
+  const [carregandoArquivos, setCarregandoArquivos] = useState(false);
+  const [analisandoSequencial, setAnalisandoSequencial] = useState<
+    number | null
+  >(null);
   const seletorArquivo = useRef<HTMLInputElement>(null);
   const fimDoChat = useRef<HTMLDivElement>(null);
 
@@ -132,6 +152,34 @@ function ChatAnalise() {
     void carregarConversa(licitacaoId);
   }, [licitacaoId, carregarConversa]);
 
+  // Lista os arquivos publicados no PNCP para a licitação selecionada.
+  useEffect(() => {
+    setArquivos([]);
+    if (!licitacaoId) return;
+
+    let ativo = true;
+    async function carregarArquivos() {
+      setCarregandoArquivos(true);
+      try {
+        const supabase = criarClientNavegador();
+        const { data } = await supabase.functions.invoke("analise-ia", {
+          body: { acao: "listar_arquivos", licitacao_id: licitacaoId },
+        });
+        if (ativo) {
+          setArquivos(
+            ((data as { arquivos?: ArquivoLicitacao[] })?.arquivos ?? []),
+          );
+        }
+      } finally {
+        if (ativo) setCarregandoArquivos(false);
+      }
+    }
+    void carregarArquivos();
+    return () => {
+      ativo = false;
+    };
+  }, [licitacaoId]);
+
   useEffect(() => {
     fimDoChat.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens, pensando]);
@@ -153,6 +201,57 @@ function ChatAnalise() {
     if (error) throw new Error(error.message);
     setConversaId(data.id);
     return data.id;
+  }
+
+  /** Grava o documento extraído na conversa e no estado do chat. */
+  async function salvarDocumento(extraido: TextoExtraidoResposta) {
+    const supabase = criarClientNavegador();
+    const id = await garantirConversa();
+    await supabase
+      .from("conversas_ia")
+      .update({
+        documento_nome: extraido.nome,
+        documento_texto: extraido.texto,
+      })
+      .eq("id", id);
+
+    setDocumento({
+      nome: extraido.nome,
+      texto: extraido.texto,
+      truncado: extraido.truncado,
+      paginas: extraido.paginas,
+    });
+  }
+
+  /** Baixa um arquivo do PNCP no servidor, extrai o texto e anexa à conversa. */
+  async function analisarArquivo(arquivo: ArquivoLicitacao) {
+    if (analisandoSequencial !== null) return;
+    setErro(null);
+    setAnalisandoSequencial(arquivo.sequencialDocumento);
+    try {
+      const supabase = criarClientNavegador();
+      const { data, error } = await supabase.functions.invoke("analise-ia", {
+        body: {
+          acao: "analisar_arquivo",
+          licitacao_id: licitacaoId,
+          sequencial_documento: arquivo.sequencialDocumento,
+        },
+      });
+      if (error) throw new Error(error.message);
+      const extraido = data as TextoExtraidoResposta;
+      if (extraido?.erro || !extraido?.texto) {
+        throw new Error(extraido?.erro ?? "não foi possível ler o arquivo");
+      }
+      await salvarDocumento(extraido);
+    } catch (excecao) {
+      setErro(
+        excecao instanceof Error
+          ? `Falha ao analisar o arquivo: ${excecao.message}`
+          : "Falha ao analisar o arquivo.",
+      );
+    } finally {
+      setAnalisandoSequencial(null);
+    }
   }
 
   async function anexarPdf(evento: React.ChangeEvent<HTMLInputElement>) {
@@ -188,22 +287,7 @@ function ChatAnalise() {
       if (extraido?.erro || !extraido?.texto) {
         throw new Error(extraido?.erro ?? "não foi possível ler o PDF");
       }
-
-      const id = await garantirConversa();
-      await supabase
-        .from("conversas_ia")
-        .update({
-          documento_nome: extraido.nome,
-          documento_texto: extraido.texto,
-        })
-        .eq("id", id);
-
-      setDocumento({
-        nome: extraido.nome,
-        texto: extraido.texto,
-        truncado: extraido.truncado,
-        paginas: extraido.paginas,
-      });
+      await salvarDocumento(extraido);
     } catch (excecao) {
       setErro(
         excecao instanceof Error
@@ -334,6 +418,52 @@ function ChatAnalise() {
             </p>
           )}
         </div>
+
+        {licitacaoId && (
+          <div className="campo">
+            <label>Arquivos da licitação no PNCP</label>
+            {carregandoArquivos && (
+              <p className="ajuda">Buscando arquivos no PNCP...</p>
+            )}
+            {!carregandoArquivos && arquivos.length === 0 && (
+              <p className="ajuda">
+                Nenhum arquivo disponível no PNCP para esta licitação.
+              </p>
+            )}
+            {arquivos.map((arquivo) => (
+              <div key={arquivo.sequencialDocumento} className="linha-arquivo">
+                <span className="nome-arquivo">
+                  📄 {arquivo.titulo ?? `documento-${arquivo.sequencialDocumento}`}
+                  {arquivo.tipoDocumentoNome && (
+                    <span className="texto-suave">
+                      {" "}· {arquivo.tipoDocumentoNome}
+                    </span>
+                  )}
+                </span>
+                <span className="acoes-arquivo">
+                  <a
+                    className="botao botao-secundario botao-mini"
+                    href={arquivo.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Baixar
+                  </a>
+                  <button
+                    type="button"
+                    className="botao botao-secundario botao-mini"
+                    disabled={analisandoSequencial !== null}
+                    onClick={() => analisarArquivo(arquivo)}
+                  >
+                    {analisandoSequencial === arquivo.sequencialDocumento
+                      ? "Analisando..."
+                      : "Analisar com IA"}
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="campo">
           <label>Documento (opcional)</label>

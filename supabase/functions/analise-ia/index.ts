@@ -15,11 +15,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { conversarComIA, type MensagemChat } from "../_shared/ia/minimax.ts";
 import {
+  baixarArquivoContratacao,
   buscarItensContratacao,
   type ItemContratacaoPNCP,
+  listarArquivosContratacao,
 } from "../_shared/pncp/cliente.ts";
 import {
   extrairTextoPdf,
+  extrairTextoPdfBytes,
   MAX_CARACTERES_DOCUMENTO,
 } from "../_shared/pdf.ts";
 import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
@@ -30,6 +33,8 @@ const MAX_ITENS_NO_CONTEXTO = 40;
 const MAX_FAVORITAS_NO_CONTEXTO = 15;
 /** ~9 MB de base64 ≈ PDF de 6,5 MB — acima disso a extração é recusada. */
 const MAX_BASE64_PDF = 9_000_000;
+/** Limite de download de arquivo do PNCP para análise. */
+const MAX_BYTES_ARQUIVO_PNCP = 12_000_000;
 
 interface DocumentoAnexado {
   nome: string;
@@ -81,6 +86,88 @@ Deno.serve(async (req) => {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return respostaJson({ erro: "não autenticado" }, 401);
+
+    // Modo: listar arquivos publicados da licitação (para download e análise).
+    if (corpo?.acao === "listar_arquivos") {
+      const licitacao = await carregarLicitacao(supabase, corpo?.licitacao_id);
+      if (!licitacao) {
+        return respostaJson({ erro: "licitação não encontrada" }, 404);
+      }
+      const arquivos = await listarArquivosContratacao(
+        licitacao.numero_controle_pncp,
+      );
+      return respostaJson({ arquivos: arquivos ?? [] }, 200);
+    }
+
+    // Modo: baixar um arquivo da licitação no PNCP e extrair o texto.
+    // O cliente informa apenas o sequencial; a URL vem sempre da listagem
+    // feita aqui no servidor (nunca do cliente).
+    if (corpo?.acao === "analisar_arquivo") {
+      const licitacao = await carregarLicitacao(supabase, corpo?.licitacao_id);
+      if (!licitacao) {
+        return respostaJson({ erro: "licitação não encontrada" }, 404);
+      }
+      const arquivos = await listarArquivosContratacao(
+        licitacao.numero_controle_pncp,
+      );
+      const arquivo = arquivos?.find(
+        (a) => a.sequencialDocumento === corpo?.sequencial_documento,
+      );
+      if (!arquivo) {
+        return respostaJson({ erro: "arquivo não encontrado no PNCP" }, 404);
+      }
+
+      const bytes = await baixarArquivoContratacao(
+        arquivo.url,
+        MAX_BYTES_ARQUIVO_PNCP,
+      );
+      if (!bytes) {
+        return respostaJson(
+          { erro: "não foi possível baixar o arquivo (grande demais ou PNCP indisponível)" },
+          502,
+        );
+      }
+      // Só PDF por enquanto: valida a assinatura %PDF.
+      const ehPdf = bytes[0] === 0x25 && bytes[1] === 0x50 &&
+        bytes[2] === 0x44 && bytes[3] === 0x46;
+      if (!ehPdf) {
+        return respostaJson(
+          { erro: "este arquivo não é um PDF — baixe-o e converta, ou anexe outro" },
+          400,
+        );
+      }
+
+      try {
+        const extraido = await extrairTextoPdfBytes(bytes);
+        if (!extraido.texto.trim()) {
+          return respostaJson(
+            { erro: "o PDF não contém texto extraível (provavelmente escaneado como imagem)" },
+            400,
+          );
+        }
+        console.log(
+          JSON.stringify({
+            funcao: "analise-ia",
+            acao: "analisar_arquivo",
+            licitacao_id: licitacao.id,
+            sequencial: arquivo.sequencialDocumento,
+            paginas: extraido.paginas,
+          }),
+        );
+        return respostaJson(
+          {
+            nome: arquivo.titulo ?? `documento-${arquivo.sequencialDocumento}.pdf`,
+            ...extraido,
+          },
+          200,
+        );
+      } catch {
+        return respostaJson(
+          { erro: "não foi possível ler este PDF (arquivo corrompido ou protegido)" },
+          400,
+        );
+      }
+    }
 
     // Modo 1: extração de PDF anexado.
     if (typeof corpo?.pdf_base64 === "string") {

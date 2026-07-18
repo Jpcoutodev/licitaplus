@@ -16,7 +16,14 @@ export interface TextoExtraido {
 }
 
 export async function extrairTextoPdf(base64: string): Promise<TextoExtraido> {
-  const binario = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  return await extrairTextoPdfBytes(
+    Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)),
+  );
+}
+
+export async function extrairTextoPdfBytes(
+  binario: Uint8Array,
+): Promise<TextoExtraido> {
   const pdf = await getDocumentProxy(binario);
   const { text, totalPages } = await extractText(pdf, { mergePages: true });
 

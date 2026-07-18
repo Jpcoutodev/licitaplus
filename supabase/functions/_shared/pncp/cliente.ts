@@ -176,27 +176,100 @@ export interface ItemContratacaoPNCP {
   situacaoCompraItemNome: string | null;
 }
 
+function urlBaseApiPncp(): string {
+  return lerEnv("PNCP_ITENS_BASE_URL") ?? "https://pncp.gov.br/api/pncp";
+}
+
+/** Decompõe o numero_controle_pncp ("CNPJ-1-SEQUENCIAL/ANO") para as rotas da API. */
+function partesNumeroControle(
+  numeroControlePncp: string,
+): { cnpj: string; sequencial: number; ano: string } | null {
+  const partes = numeroControlePncp.match(/^(\d{14})-\d-(\d+)\/(\d{4})$/);
+  if (!partes) return null;
+  return { cnpj: partes[1], sequencial: Number(partes[2]), ano: partes[3] };
+}
+
 /**
  * Busca os itens de uma contratação na API principal do PNCP, a partir do
- * numero_controle_pncp (formato "CNPJ-1-SEQUENCIAL/ANO"). Retorna null se o
- * número não puder ser interpretado ou o PNCP não responder — o chamador
- * decide seguir sem os itens.
+ * numero_controle_pncp. Retorna null se o número não puder ser interpretado
+ * ou o PNCP não responder — o chamador decide seguir sem os itens.
  */
 export async function buscarItensContratacao(
   numeroControlePncp: string,
 ): Promise<ItemContratacaoPNCP[] | null> {
-  const partes = numeroControlePncp.match(/^(\d{14})-\d-(\d+)\/(\d{4})$/);
+  const partes = partesNumeroControle(numeroControlePncp);
   if (!partes) return null;
-  const [, cnpj, sequencial, ano] = partes;
 
-  const base = lerEnv("PNCP_ITENS_BASE_URL") ?? "https://pncp.gov.br/api/pncp";
   const url =
-    `${base}/v1/orgaos/${cnpj}/compras/${ano}/${Number(sequencial)}/itens`;
+    `${urlBaseApiPncp()}/v1/orgaos/${partes.cnpj}/compras/${partes.ano}/${partes.sequencial}/itens`;
 
   try {
     const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
     if (!resposta.ok) return null;
     return (await resposta.json()) as ItemContratacaoPNCP[];
+  } catch {
+    return null;
+  }
+}
+
+export interface ArquivoContratacaoPNCP {
+  sequencialDocumento: number;
+  titulo: string | null;
+  tipoDocumentoNome: string | null;
+  url: string;
+}
+
+/**
+ * Lista os arquivos publicados de uma contratação (edital, anexos, termo de
+ * referência). Retorna null em falha — o chamador decide seguir sem eles.
+ */
+export async function listarArquivosContratacao(
+  numeroControlePncp: string,
+): Promise<ArquivoContratacaoPNCP[] | null> {
+  const partes = partesNumeroControle(numeroControlePncp);
+  if (!partes) return null;
+
+  const url =
+    `${urlBaseApiPncp()}/v1/orgaos/${partes.cnpj}/compras/${partes.ano}/${partes.sequencial}/arquivos`;
+
+  try {
+    const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
+    if (!resposta.ok) return null;
+    const lista = (await resposta.json()) as Array<{
+      sequencialDocumento?: number;
+      titulo?: string | null;
+      tipoDocumentoNome?: string | null;
+      url?: string | null;
+      uri?: string | null;
+      statusAtivo?: boolean;
+    }>;
+    return lista
+      .filter((a) => a.statusAtivo !== false && (a.url || a.uri))
+      .map((a) => ({
+        sequencialDocumento: a.sequencialDocumento ?? 0,
+        titulo: a.titulo ?? null,
+        tipoDocumentoNome: a.tipoDocumentoNome ?? null,
+        url: (a.url ?? a.uri)!,
+      }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Baixa um arquivo de contratação (a URL deve vir da listagem acima — nunca
+ * do cliente) e retorna os bytes, ou null se exceder o limite ou falhar.
+ */
+export async function baixarArquivoContratacao(
+  urlArquivo: string,
+  maxBytes: number,
+): Promise<Uint8Array | null> {
+  try {
+    const resposta = await fetchWithRetry(urlArquivo, {}, RETRY_PNCP);
+    if (!resposta.ok) return null;
+    const bytes = new Uint8Array(await resposta.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > maxBytes) return null;
+    return bytes;
   } catch {
     return null;
   }

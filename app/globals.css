@@ -584,6 +584,37 @@ main.container {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+/* ---------- arquivos da licitação ---------- */
+
+.linha-arquivo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.nome-arquivo {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 200px;
+}
+
+.acoes-arquivo {
+  display: flex;
+  gap: 8px;
+}
+
+.botao-mini {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
 /* ---------- utilidades ---------- */
 
 .texto-suave { color: var(--texto-suave); }
