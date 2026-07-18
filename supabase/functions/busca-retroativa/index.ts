@@ -51,6 +51,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Busca inicial do zero: o perfil mudou, então os matches antigos deixam
+    // de valer (favoritos ficam — são tabela própria). A janela abaixo refaz
+    // o painel conforme as palavras-chave atuais.
+    const { error: erroLimpeza } = await supabaseWorker
+      .from("matches")
+      .delete()
+      .eq("perfil_id", perfil_id);
+    if (erroLimpeza) {
+      throw new Error(`Falha ao limpar matches antigos: ${erroLimpeza.message}`);
+    }
+
     const { fatias, matching, buscaTextual } = await executarJanelaDeColeta(
       supabaseWorker,
       [perfil],
