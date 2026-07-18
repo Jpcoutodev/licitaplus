@@ -17,6 +17,7 @@ export interface UnidadeOrgaoPNCP {
 
 export interface ContratacaoPNCP {
   numeroControlePNCP: string;
+  dataPublicacaoPncp: string | null;
   objetoCompra: string | null;
   informacaoComplementar: string | null;
   valorTotalEstimado: number | null;
@@ -44,6 +45,7 @@ export interface PaginaPNCP<T> {
 /** Formato interno: espelha as colunas da tabela public.licitacoes. */
 export interface LicitacaoColetada {
   numero_controle_pncp: string;
+  data_publicacao_pncp: string | null;
   objeto_compra: string;
   informacao_complementar: string | null;
   valor_total_estimado: number | null;

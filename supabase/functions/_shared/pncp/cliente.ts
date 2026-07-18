@@ -95,6 +95,7 @@ interface ItemBuscaTextualPNCP {
   modalidade_licitacao_nome: string | null;
   situacao_nome: string | null;
   valor_global: number | null;
+  data_publicacao_pncp: string | null;
   item_url: string | null;
   [campo: string]: unknown;
 }
@@ -144,6 +145,7 @@ function mapearItemBuscaTextual(item: ItemBuscaTextualPNCP): LicitacaoColetada {
 
   return {
     numero_controle_pncp: item.numero_controle_pncp!,
+    data_publicacao_pncp: item.data_publicacao_pncp ?? null,
     objeto_compra: item.description ?? "",
     informacao_complementar: null,
     valor_total_estimado: item.valor_global ?? null,
@@ -204,6 +206,7 @@ export async function buscarItensContratacao(
 export function mapearContratacao(item: ContratacaoPNCP): LicitacaoColetada {
   return {
     numero_controle_pncp: item.numeroControlePNCP,
+    data_publicacao_pncp: item.dataPublicacaoPncp ?? null,
     objeto_compra: item.objetoCompra ?? "",
     informacao_complementar: item.informacaoComplementar ?? null,
     valor_total_estimado: item.valorTotalEstimado ?? null,
