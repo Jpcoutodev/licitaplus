@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
@@ -26,6 +26,8 @@ interface DocumentoAnexado {
 
 /** PDF até ~6 MB (o texto extraído é limitado no servidor). */
 const MAX_BYTES_PDF = 6 * 1024 * 1024;
+/** A IA recebe só o fim da conversa; o histórico completo fica no banco. */
+const MAX_MENSAGENS_PARA_IA = 16;
 
 export default function PaginaAnalise() {
   return (
@@ -53,9 +55,11 @@ function ChatAnalise() {
 
   const [favoritas, setFavoritas] = useState<OpcaoFavorita[]>([]);
   const [licitacaoId, setLicitacaoId] = useState<string>(preSelecionada ?? "");
+  const [conversaId, setConversaId] = useState<string | null>(null);
   const [mensagens, setMensagens] = useState<MensagemChat[]>([]);
   const [texto, setTexto] = useState("");
   const [pensando, setPensando] = useState(false);
+  const [carregandoConversa, setCarregandoConversa] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [documento, setDocumento] = useState<DocumentoAnexado | null>(null);
   const [extraindo, setExtraindo] = useState(false);
@@ -82,9 +86,74 @@ function ChatAnalise() {
     void carregarFavoritas();
   }, []);
 
+  // Carrega a conversa salva (histórico + documento) da licitação selecionada.
+  const carregarConversa = useCallback(async (licitacao: string) => {
+    setCarregandoConversa(true);
+    setErro(null);
+    setConversaId(null);
+    setMensagens([]);
+    setDocumento(null);
+
+    const supabase = criarClientNavegador();
+    let consulta = supabase
+      .from("conversas_ia")
+      .select("id, documento_nome, documento_texto");
+    consulta = licitacao
+      ? consulta.eq("licitacao_id", licitacao)
+      : consulta.is("licitacao_id", null);
+    const { data: conversa } = await consulta.maybeSingle();
+
+    if (conversa) {
+      setConversaId(conversa.id);
+      if (conversa.documento_texto && conversa.documento_nome) {
+        setDocumento({
+          nome: conversa.documento_nome,
+          texto: conversa.documento_texto,
+          truncado: false,
+          paginas: 0,
+        });
+      }
+      const { data: historico } = await supabase
+        .from("mensagens_ia")
+        .select("role, conteudo")
+        .eq("conversa_id", conversa.id)
+        .order("ordem", { ascending: true });
+      setMensagens(
+        (historico ?? []).map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.conteudo,
+        })),
+      );
+    }
+    setCarregandoConversa(false);
+  }, []);
+
+  useEffect(() => {
+    void carregarConversa(licitacaoId);
+  }, [licitacaoId, carregarConversa]);
+
   useEffect(() => {
     fimDoChat.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens, pensando]);
+
+  /** Garante a linha da conversa no banco e retorna o id. */
+  async function garantirConversa(): Promise<string> {
+    if (conversaId) return conversaId;
+    const supabase = criarClientNavegador();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Sessão expirada. Entre novamente.");
+
+    const { data, error } = await supabase
+      .from("conversas_ia")
+      .insert({ user_id: user.id, licitacao_id: licitacaoId || null })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    setConversaId(data.id);
+    return data.id;
+  }
 
   async function anexarPdf(evento: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = evento.target.files?.[0];
@@ -119,6 +188,16 @@ function ChatAnalise() {
       if (extraido?.erro || !extraido?.texto) {
         throw new Error(extraido?.erro ?? "não foi possível ler o PDF");
       }
+
+      const id = await garantirConversa();
+      await supabase
+        .from("conversas_ia")
+        .update({
+          documento_nome: extraido.nome,
+          documento_texto: extraido.texto,
+        })
+        .eq("id", id);
+
       setDocumento({
         nome: extraido.nome,
         texto: extraido.texto,
@@ -134,6 +213,31 @@ function ChatAnalise() {
     } finally {
       setExtraindo(false);
     }
+  }
+
+  async function removerDocumento() {
+    setDocumento(null);
+    if (conversaId) {
+      const supabase = criarClientNavegador();
+      await supabase
+        .from("conversas_ia")
+        .update({ documento_nome: null, documento_texto: null })
+        .eq("id", conversaId);
+    }
+  }
+
+  async function limparConversa() {
+    if (!conversaId) {
+      setMensagens([]);
+      setDocumento(null);
+      return;
+    }
+    const supabase = criarClientNavegador();
+    await supabase.from("conversas_ia").delete().eq("id", conversaId);
+    setConversaId(null);
+    setMensagens([]);
+    setDocumento(null);
+    setErro(null);
   }
 
   async function enviar(evento: React.FormEvent) {
@@ -158,14 +262,24 @@ function ChatAnalise() {
           documento: documento
             ? { nome: documento.nome, texto: documento.texto }
             : undefined,
-          mensagens: novasMensagens,
+          mensagens: novasMensagens.slice(-MAX_MENSAGENS_PARA_IA),
         },
       });
       if (error) throw new Error(error.message);
 
       const resposta = (data as { resposta?: string })?.resposta;
       if (!resposta) throw new Error("resposta vazia da IA");
-      setMensagens([...novasMensagens, { role: "assistant", content: resposta }]);
+      setMensagens([
+        ...novasMensagens,
+        { role: "assistant", content: resposta },
+      ]);
+
+      // Persiste a troca (pergunta + resposta) na conversa.
+      const id = await garantirConversa();
+      await supabase.from("mensagens_ia").insert([
+        { conversa_id: id, role: "user", conteudo: pergunta },
+        { conversa_id: id, role: "assistant", conteudo: resposta },
+      ]);
     } catch (excecao) {
       setErro(
         excecao instanceof Error
@@ -183,10 +297,19 @@ function ChatAnalise() {
         <div>
           <h1>Análise com IA</h1>
           <p className="texto-suave sem-margem">
-            Converse sobre uma licitação favorita — a IA conhece os detalhes e
-            os itens do edital (via PNCP).
+            Converse sobre uma licitação favorita — a conversa fica salva por
+            licitação.
           </p>
         </div>
+        {mensagens.length > 0 && (
+          <button
+            type="button"
+            className="botao botao-secundario"
+            onClick={limparConversa}
+          >
+            Limpar conversa
+          </button>
+        )}
       </div>
 
       <div className="cartao">
@@ -195,11 +318,7 @@ function ChatAnalise() {
           <select
             id="licitacao"
             value={licitacaoId}
-            onChange={(e) => {
-              setLicitacaoId(e.target.value);
-              setMensagens([]);
-              setErro(null);
-            }}
+            onChange={(e) => setLicitacaoId(e.target.value)}
           >
             <option value="">Nenhuma (perguntas gerais sobre licitações)</option>
             {favoritas.map((f) => (
@@ -228,12 +347,13 @@ function ChatAnalise() {
           {documento ? (
             <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span className="etiqueta etiqueta-nova">
-                📄 {documento.nome} ({documento.paginas} pág.)
+                📄 {documento.nome}
+                {documento.paginas > 0 ? ` (${documento.paginas} pág.)` : ""}
               </span>
               <button
                 type="button"
                 className="botao-fantasma"
-                onClick={() => setDocumento(null)}
+                onClick={removerDocumento}
               >
                 Remover
               </button>
@@ -258,7 +378,12 @@ function ChatAnalise() {
         </div>
 
         <div className="chat-janela">
-          {mensagens.length === 0 && (
+          {carregandoConversa && (
+            <p className="texto-suave" style={{ padding: 8 }}>
+              Carregando conversa...
+            </p>
+          )}
+          {!carregandoConversa && mensagens.length === 0 && (
             <p className="texto-suave" style={{ padding: 8 }}>
               Exemplos: &quot;Vale a pena participar?&quot; · &quot;Quais itens
               têm maior valor?&quot; · &quot;Que documentos costumam ser
