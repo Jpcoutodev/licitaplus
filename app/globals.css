@@ -476,6 +476,85 @@ main.container {
   background: var(--fundo);
   border: 1px solid var(--borda);
   border-bottom-left-radius: 4px;
+  white-space: normal;
+  max-width: 95%;
+}
+
+/* markdown dentro da resposta da IA */
+.chat-msg-ia h1,
+.chat-msg-ia h2 {
+  font-size: 16px;
+  margin: 14px 0 6px;
+}
+
+.chat-msg-ia h3,
+.chat-msg-ia h4 {
+  font-size: 14.5px;
+  margin: 12px 0 4px;
+}
+
+.chat-msg-ia h1:first-child,
+.chat-msg-ia h2:first-child,
+.chat-msg-ia h3:first-child,
+.chat-msg-ia p:first-child {
+  margin-top: 0;
+}
+
+.chat-msg-ia p {
+  margin: 6px 0;
+}
+
+.chat-msg-ia ul,
+.chat-msg-ia ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.chat-msg-ia li {
+  margin: 3px 0;
+}
+
+.chat-msg-ia hr {
+  border: none;
+  border-top: 1px solid var(--borda);
+  margin: 12px 0;
+}
+
+.chat-msg-ia table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.chat-msg-ia th,
+.chat-msg-ia td {
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+  padding: 5px 9px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.chat-msg-ia th {
+  background: var(--primaria-suave);
+}
+
+.chat-msg-ia code {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+
+.chat-msg-ia blockquote {
+  border-left: 3px solid var(--borda);
+  padding-left: 10px;
+  color: var(--texto-suave);
+  margin: 6px 0;
 }
 
 .chat-digitando {

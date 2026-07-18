@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { criarClientNavegador } from "@/lib/supabase/client";
 
 interface OpcaoFavorita {
@@ -270,7 +272,20 @@ function ChatAnalise() {
                 mensagem.role === "user" ? "chat-msg-usuario" : "chat-msg-ia"
               }`}
             >
-              {mensagem.content}
+              {mensagem.role === "assistant" ? (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: (props) => (
+                      <a {...props} target="_blank" rel="noreferrer" />
+                    ),
+                  }}
+                >
+                  {mensagem.content}
+                </ReactMarkdown>
+              ) : (
+                mensagem.content
+              )}
             </div>
           ))}
           {pensando && (
