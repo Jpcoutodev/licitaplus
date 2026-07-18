@@ -15,12 +15,34 @@ interface MensagemChat {
   content: string;
 }
 
+interface DocumentoAnexado {
+  nome: string;
+  texto: string;
+  truncado: boolean;
+  paginas: number;
+}
+
+/** PDF até ~6 MB (o texto extraído é limitado no servidor). */
+const MAX_BYTES_PDF = 6 * 1024 * 1024;
+
 export default function PaginaAnalise() {
   return (
     <Suspense fallback={<p className="texto-suave">Carregando...</p>}>
       <ChatAnalise />
     </Suspense>
   );
+}
+
+function lerComoBase64(arquivo: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      const resultado = String(leitor.result ?? "");
+      resolve(resultado.slice(resultado.indexOf(",") + 1));
+    };
+    leitor.onerror = () => reject(new Error("falha ao ler o arquivo"));
+    leitor.readAsDataURL(arquivo);
+  });
 }
 
 function ChatAnalise() {
@@ -33,6 +55,9 @@ function ChatAnalise() {
   const [texto, setTexto] = useState("");
   const [pensando, setPensando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [documento, setDocumento] = useState<DocumentoAnexado | null>(null);
+  const [extraindo, setExtraindo] = useState(false);
+  const seletorArquivo = useRef<HTMLInputElement>(null);
   const fimDoChat = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,6 +84,56 @@ function ChatAnalise() {
     fimDoChat.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens, pensando]);
 
+  async function anexarPdf(evento: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    evento.target.value = "";
+    if (!arquivo) return;
+
+    setErro(null);
+    if (!arquivo.name.toLowerCase().endsWith(".pdf")) {
+      setErro("Anexe um arquivo PDF.");
+      return;
+    }
+    if (arquivo.size > MAX_BYTES_PDF) {
+      setErro("PDF grande demais — o limite é 6 MB.");
+      return;
+    }
+
+    setExtraindo(true);
+    try {
+      const base64 = await lerComoBase64(arquivo);
+      const supabase = criarClientNavegador();
+      const { data, error } = await supabase.functions.invoke("analise-ia", {
+        body: { pdf_base64: base64, pdf_nome: arquivo.name },
+      });
+      if (error) throw new Error(error.message);
+      const extraido = data as {
+        nome: string;
+        texto: string;
+        truncado: boolean;
+        paginas: number;
+        erro?: string;
+      };
+      if (extraido?.erro || !extraido?.texto) {
+        throw new Error(extraido?.erro ?? "não foi possível ler o PDF");
+      }
+      setDocumento({
+        nome: extraido.nome,
+        texto: extraido.texto,
+        truncado: extraido.truncado,
+        paginas: extraido.paginas,
+      });
+    } catch (excecao) {
+      setErro(
+        excecao instanceof Error
+          ? `Falha ao ler o PDF: ${excecao.message}`
+          : "Falha ao ler o PDF.",
+      );
+    } finally {
+      setExtraindo(false);
+    }
+  }
+
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault();
     const pergunta = texto.trim();
@@ -78,6 +153,9 @@ function ChatAnalise() {
       const { data, error } = await supabase.functions.invoke("analise-ia", {
         body: {
           licitacao_id: licitacaoId || undefined,
+          documento: documento
+            ? { nome: documento.nome, texto: documento.texto }
+            : undefined,
           mensagens: novasMensagens,
         },
       });
@@ -132,6 +210,47 @@ function ChatAnalise() {
             <p className="ajuda">
               Você ainda não tem favoritas — marque uma licitação com ★ no{" "}
               <Link href="/painel">painel</Link> para analisá-la aqui.
+            </p>
+          )}
+        </div>
+
+        <div className="campo">
+          <label>Documento (opcional)</label>
+          <input
+            ref={seletorArquivo}
+            type="file"
+            accept=".pdf,application/pdf"
+            style={{ display: "none" }}
+            onChange={anexarPdf}
+          />
+          {documento ? (
+            <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span className="etiqueta etiqueta-nova">
+                📄 {documento.nome} ({documento.paginas} pág.)
+              </span>
+              <button
+                type="button"
+                className="botao-fantasma"
+                onClick={() => setDocumento(null)}
+              >
+                Remover
+              </button>
+            </p>
+          ) : (
+            <p>
+              <button
+                type="button"
+                className="botao botao-secundario"
+                disabled={extraindo}
+                onClick={() => seletorArquivo.current?.click()}
+              >
+                {extraindo ? "Lendo PDF..." : "Anexar PDF (edital, termo de referência...)"}
+              </button>
+            </p>
+          )}
+          {documento?.truncado && (
+            <p className="ajuda">
+              Documento longo: a IA recebe as primeiras ~60 mil letras.
             </p>
           )}
         </div>

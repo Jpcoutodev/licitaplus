@@ -3,10 +3,13 @@
  * Chamada pelo navegador (CORS + JWT). A IA recebe como contexto:
  *   - a licitação selecionada (campos estruturados completos);
  *   - os itens do edital, buscados na API do PNCP (quantidades e valores);
- *   - a lista de favoritas do usuário (para comparações).
+ *   - a lista de favoritas do usuário (para comparações);
+ *   - opcionalmente um PDF anexado pelo usuário (edital/termo de referência).
  *
- * Body: { licitacao_id?: string, mensagens: [{ role, content }] }
- * O histórico da conversa fica no cliente; a function é stateless.
+ * Dois modos, pelo body:
+ *   { pdf_base64, pdf_nome }                 → extrai o texto do PDF e devolve
+ *   { licitacao_id?, documento?, mensagens } → conversa (stateless; o
+ *     histórico e o texto do documento ficam no cliente)
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -15,12 +18,23 @@ import {
   buscarItensContratacao,
   type ItemContratacaoPNCP,
 } from "../_shared/pncp/cliente.ts";
+import {
+  extrairTextoPdf,
+  MAX_CARACTERES_DOCUMENTO,
+} from "../_shared/pdf.ts";
 import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
 
 const MAX_MENSAGENS = 16;
 const MAX_TAMANHO_MENSAGEM = 4000;
 const MAX_ITENS_NO_CONTEXTO = 40;
 const MAX_FAVORITAS_NO_CONTEXTO = 15;
+/** ~9 MB de base64 ≈ PDF de 6,5 MB — acima disso a extração é recusada. */
+const MAX_BASE64_PDF = 9_000_000;
+
+interface DocumentoAnexado {
+  nome: string;
+  texto: string;
+}
 
 interface LicitacaoContexto {
   id: string;
@@ -51,10 +65,6 @@ Deno.serve(async (req) => {
 
   try {
     const corpo = await req.json().catch(() => ({}));
-    const mensagens = validarMensagens(corpo?.mensagens);
-    if (!mensagens) {
-      return respostaJson({ erro: "mensagens inválidas" }, 400);
-    }
 
     // Client com o token do usuário: RLS limita favoritos ao dono.
     const supabase = createClient(
@@ -72,6 +82,40 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser();
     if (!user) return respostaJson({ erro: "não autenticado" }, 401);
 
+    // Modo 1: extração de PDF anexado.
+    if (typeof corpo?.pdf_base64 === "string") {
+      if (corpo.pdf_base64.length > MAX_BASE64_PDF) {
+        return respostaJson({ erro: "PDF grande demais (limite ~6 MB)" }, 400);
+      }
+      const nome = typeof corpo?.pdf_nome === "string" && corpo.pdf_nome
+        ? corpo.pdf_nome.slice(0, 120)
+        : "documento.pdf";
+      try {
+        const extraido = await extrairTextoPdf(corpo.pdf_base64);
+        console.log(
+          JSON.stringify({
+            funcao: "analise-ia",
+            acao: "extrair_pdf",
+            paginas: extraido.paginas,
+            caracteres: extraido.caracteres_totais,
+          }),
+        );
+        return respostaJson({ nome, ...extraido }, 200);
+      } catch {
+        return respostaJson(
+          { erro: "não foi possível ler este PDF (arquivo corrompido ou protegido)" },
+          400,
+        );
+      }
+    }
+
+    // Modo 2: conversa.
+    const mensagens = validarMensagens(corpo?.mensagens);
+    if (!mensagens) {
+      return respostaJson({ erro: "mensagens inválidas" }, 400);
+    }
+    const documento = validarDocumento(corpo?.documento);
+
     const [selecionada, favoritas] = await Promise.all([
       carregarLicitacao(supabase, corpo?.licitacao_id),
       carregarFavoritas(supabase),
@@ -85,7 +129,7 @@ Deno.serve(async (req) => {
       [
         {
           role: "system",
-          content: montarContexto(selecionada, itens, favoritas),
+          content: montarContexto(selecionada, itens, favoritas, documento),
         },
         ...mensagens,
       ],
@@ -98,6 +142,7 @@ Deno.serve(async (req) => {
         licitacao_id: selecionada?.id ?? null,
         mensagens: mensagens.length,
         itens_pncp: itens?.length ?? 0,
+        documento: documento ? documento.nome : null,
       }),
     );
     return respostaJson({ resposta }, 200);
@@ -107,6 +152,18 @@ Deno.serve(async (req) => {
     return respostaJson({ erro: mensagem }, 500);
   }
 });
+
+function validarDocumento(entrada: unknown): DocumentoAnexado | null {
+  const nome = (entrada as { nome?: unknown })?.nome;
+  const texto = (entrada as { texto?: unknown })?.texto;
+  if (typeof nome !== "string" || typeof texto !== "string" || !texto.trim()) {
+    return null;
+  }
+  return {
+    nome: nome.slice(0, 120),
+    texto: texto.slice(0, MAX_CARACTERES_DOCUMENTO),
+  };
+}
 
 function validarMensagens(entrada: unknown): MensagemChat[] | null {
   if (!Array.isArray(entrada) || entrada.length === 0) return null;
@@ -182,6 +239,7 @@ function montarContexto(
   selecionada: LicitacaoContexto | null,
   itens: ItemContratacaoPNCP[] | null,
   favoritas: LicitacaoContexto[],
+  documento: DocumentoAnexado | null,
 ): string {
   const blocos = [
     "Você é um consultor sênior em licitações públicas brasileiras (Lei 14.133/2021) " +
@@ -208,6 +266,16 @@ function montarContexto(
   } else {
     blocos.push(
       "## Licitação em análise\nNenhuma licitação selecionada — oriente o usuário a escolher uma favorita para análise detalhada, mas responda perguntas gerais normalmente.",
+    );
+  }
+
+  if (documento) {
+    blocos.push(
+      `## Documento anexado pelo usuário: "${documento.nome}"\n` +
+        "Trate este documento (edital, termo de referência ou similar) como " +
+        "fonte primária ao responder perguntas sobre exigências, prazos e " +
+        "condições. Se algo não estiver no documento, diga isso.\n\n" +
+        documento.texto,
     );
   }
 
