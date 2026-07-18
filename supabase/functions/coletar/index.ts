@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       ? { uf: corpo.uf, codigoModalidade: corpo.codigoModalidade }
       : null;
 
-    const { fatias, matching } = await executarJanelaDeColeta(
+    const { fatias, matching, buscaTextual } = await executarJanelaDeColeta(
       supabase,
       perfis,
       fatiaUnica ? [fatiaUnica] : undefined,
@@ -38,8 +38,10 @@ Deno.serve(async (req) => {
     const resumo = {
       funcao: "coletar",
       perfis_ativos: perfis.length,
+      busca_textual: buscaTextual,
       fatias_processadas: fatias.length,
-      licitacoes_coletadas: fatias.reduce((s, f) => s + f.coletadas, 0),
+      licitacoes_coletadas: buscaTextual.coletadas +
+        fatias.reduce((s, f) => s + f.coletadas, 0),
       matches_novos: matching.reduce((s, m) => s + m.matches_novos, 0),
       cursores: fatias.map((f) => ({
         fatia: f.fatia,

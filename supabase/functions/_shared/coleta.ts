@@ -15,6 +15,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import {
   buscarPaginaPropostasAbertas,
+  buscarPorTermoTextual,
   formatarDataPncp,
 } from "./pncp/cliente.ts";
 import type { LicitacaoColetada } from "./pncp/tipos.ts";
@@ -68,10 +69,17 @@ export async function lerPerfisAtivos(
   return data ?? [];
 }
 
-/** Grava licitações novas; duplicadas (numero_controle_pncp) são ignoradas. */
+/**
+ * Grava licitações. Com sobrescrever=true (varredura oficial, dados
+ * completos) registros existentes são atualizados — isso enriquece os
+ * parciais vindos da busca textual. Com sobrescrever=false (busca textual,
+ * dados parciais) duplicadas são ignoradas para nunca rebaixar um registro
+ * completo.
+ */
 async function gravarLicitacoes(
   supabase: SupabaseClient,
   itens: LicitacaoColetada[],
+  sobrescrever: boolean,
 ): Promise<void> {
   for (let inicio = 0; inicio < itens.length; inicio += LOTE_UPSERT) {
     const lote = itens.slice(inicio, inicio + LOTE_UPSERT);
@@ -79,7 +87,7 @@ async function gravarLicitacoes(
       .from("licitacoes")
       .upsert(lote, {
         onConflict: "numero_controle_pncp",
-        ignoreDuplicates: true,
+        ignoreDuplicates: !sobrescrever,
       });
     if (error) throw new Error(`Falha ao gravar licitações: ${error.message}`);
   }
@@ -149,7 +157,7 @@ export async function coletarFatia(
     ) {
       const { itens, totalPaginas, paginasRestantes } =
         await buscarPaginaPropostasAbertas(filtro, pagina);
-      await gravarLicitacoes(supabase, itens);
+      await gravarLicitacoes(supabase, itens, true);
 
       resultado.coletadas += itens.length;
       resultado.paginasLidas++;
@@ -169,6 +177,63 @@ export async function coletarFatia(
 
   resultado.pagina_cursor = pagina;
   await gravarProgresso(supabase, fatia, pagina);
+  return resultado;
+}
+
+export interface ResultadoBuscaTextual {
+  consultas: number;
+  coletadas: number;
+  erros: string[];
+}
+
+/** Limite de consultas textuais (termo × UF) por janela. */
+const MAX_CONSULTAS_TEXTUAIS = 12;
+
+/**
+ * Coleta dirigida pelas palavras-chave dos perfis via busca textual do PNCP
+ * (o mesmo mecanismo do portal). Best-effort: qualquer falha é registrada e
+ * a varredura oficial segue como fallback. Registros gravados sem
+ * sobrescrever — a varredura enriquece depois com os dados completos.
+ */
+export async function coletarPorBuscaTextual(
+  supabase: SupabaseClient,
+  perfis: PerfilColeta[],
+  prazoMs: number,
+): Promise<ResultadoBuscaTextual> {
+  const resultado: ResultadoBuscaTextual = {
+    consultas: 0,
+    coletadas: 0,
+    erros: [],
+  };
+
+  // Pares únicos (termo, uf) de todos os perfis ativos.
+  const pares = new Map<string, { termo: string; uf: string }>();
+  for (const perfil of perfis) {
+    for (const termo of expandirComSinonimos(perfil.palavras_chave)) {
+      for (const uf of perfil.ufs) {
+        const sigla = uf.trim().toUpperCase();
+        if (sigla) pares.set(`${termo}|${sigla}`, { termo, uf: sigla });
+      }
+    }
+  }
+
+  for (const { termo, uf } of pares.values()) {
+    if (resultado.consultas >= MAX_CONSULTAS_TEXTUAIS) break;
+    if (Date.now() >= prazoMs) break;
+    resultado.consultas++;
+
+    try {
+      const itens = await buscarPorTermoTextual(termo, uf);
+      await gravarLicitacoes(supabase, itens, false);
+      resultado.coletadas += itens.length;
+    } catch (erro) {
+      resultado.erros.push(
+        `"${termo}"/${uf}: ${erro instanceof Error ? erro.message : erro}`,
+      );
+    }
+    await sleep(PAUSA_ENTRE_PAGINAS_MS);
+  }
+
   return resultado;
 }
 
@@ -211,20 +276,32 @@ function somarMatching(
 }
 
 /**
- * Janela de coleta: matching inicial (casa o que já está no banco), depois
- * cada fatia seguida de novo matching — assim progresso parcial já vira
- * match mesmo que a invocação seja encerrada no meio.
+ * Janela de coleta, em ordem de valor para o usuário:
+ *  1. matching inicial (casa o que já está no banco);
+ *  2. busca textual pelas palavras-chave (paridade com a busca do portal),
+ *     seguida de matching;
+ *  3. varredura oficial por fatias com o orçamento restante (fallback e
+ *     enriquecimento), com matching após cada fatia.
  */
 export async function executarJanelaDeColeta(
   supabase: SupabaseClient,
   perfis: PerfilColeta[],
   fatiasEscolhidas?: Fatia[],
-): Promise<{ fatias: ResultadoFatia[]; matching: ResultadoMatching[] }> {
+): Promise<{
+  fatias: ResultadoFatia[];
+  matching: ResultadoMatching[];
+  buscaTextual: ResultadoBuscaTextual;
+}> {
   const prazoMs = Date.now() + ORCAMENTO_MS;
   const fatias = fatiasEscolhidas ?? derivarFatias(perfis);
 
   const acumulado = new Map<string, ResultadoMatching>();
   somarMatching(acumulado, await executarMatchingPerfis(supabase, perfis));
+
+  const buscaTextual = await coletarPorBuscaTextual(supabase, perfis, prazoMs);
+  if (buscaTextual.coletadas > 0) {
+    somarMatching(acumulado, await executarMatchingPerfis(supabase, perfis));
+  }
 
   const resultadosFatias: ResultadoFatia[] = [];
   for (const fatia of fatias) {
@@ -236,5 +313,9 @@ export async function executarJanelaDeColeta(
     }
   }
 
-  return { fatias: resultadosFatias, matching: [...acumulado.values()] };
+  return {
+    fatias: resultadosFatias,
+    matching: [...acumulado.values()],
+    buscaTextual,
+  };
 }

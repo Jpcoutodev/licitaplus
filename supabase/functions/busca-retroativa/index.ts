@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { fatias, matching } = await executarJanelaDeColeta(
+    const { fatias, matching, buscaTextual } = await executarJanelaDeColeta(
       supabaseWorker,
       [perfil],
     );
@@ -59,8 +59,10 @@ Deno.serve(async (req) => {
     const resumo = {
       funcao: "busca-retroativa",
       perfil_id,
+      busca_textual: buscaTextual,
       fatias_processadas: fatias.length,
-      licitacoes_coletadas: fatias.reduce((s, f) => s + f.coletadas, 0),
+      licitacoes_coletadas: buscaTextual.coletadas +
+        fatias.reduce((s, f) => s + f.coletadas, 0),
       matches_novos: matching.reduce((s, m) => s + m.matches_novos, 0),
       erros_fatias: fatias.filter((f) => f.erro).map((f) => ({
         fatia: f.fatia,
