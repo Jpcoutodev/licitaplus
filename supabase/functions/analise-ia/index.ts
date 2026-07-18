@@ -23,7 +23,8 @@ import {
   type ItemContratacaoPNCP,
   listarArquivosContratacao,
 } from "../_shared/pncp/cliente.ts";
-import { extrairTextoPdf, extrairTextoPdfBytes } from "../_shared/pdf.ts";
+import { extrairTextoPdfBytes } from "../_shared/pdf.ts";
+import { extrairTextoDocx, pareceZip } from "../_shared/docx.ts";
 import { dividirEmTrechos, extrairSumario } from "../_shared/trechos.ts";
 import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
 
@@ -45,6 +46,57 @@ const MAX_TRECHOS_POR_PERGUNTA = 12;
 const LOTE_INSERT_TRECHOS = 200;
 
 type ClienteSupabase = ReturnType<typeof createClient>;
+
+interface TextoDeArquivo {
+  texto: string;
+  paginas: number;
+}
+
+/**
+ * Extrai texto de PDF ou DOCX a partir dos bytes, detectando o formato pela
+ * assinatura. Lança Error com mensagem amigável nos casos não suportados
+ * (PDF escaneado sem texto, .doc antigo, .xlsx, formato desconhecido).
+ */
+async function extrairTextoDeArquivo(
+  bytes: Uint8Array,
+): Promise<TextoDeArquivo> {
+  const ehPdf = bytes[0] === 0x25 && bytes[1] === 0x50 &&
+    bytes[2] === 0x44 && bytes[3] === 0x46;
+
+  if (ehPdf) {
+    const extraido = await extrairTextoPdfBytes(bytes);
+    if (!extraido.texto.trim()) {
+      throw new Error(
+        "o PDF não contém texto extraível (provavelmente escaneado como imagem)",
+      );
+    }
+    return { texto: extraido.texto, paginas: extraido.paginas };
+  }
+
+  if (pareceZip(bytes)) {
+    try {
+      const texto = extrairTextoDocx(bytes);
+      if (!texto.trim()) throw new Error("vazio");
+      return { texto, paginas: 0 };
+    } catch (erro) {
+      if (erro instanceof Error && erro.message === "nao_docx") {
+        throw new Error(
+          "este arquivo é uma planilha ou pacote compactado, não um documento de texto — use o botão Baixar",
+        );
+      }
+      throw new Error("não foi possível ler este arquivo Word");
+    }
+  }
+
+  // .doc antigo (OLE): D0 CF 11 E0
+  if (bytes[0] === 0xd0 && bytes[1] === 0xcf) {
+    throw new Error(
+      "arquivo .doc antigo não suportado — no Word, salve como PDF ou .docx e anexe pelo botão Anexar",
+    );
+  }
+
+  throw new Error("formato de arquivo não reconhecido (use PDF ou .docx)");
+}
 
 interface LicitacaoContexto {
   id: string;
@@ -174,25 +226,11 @@ async function modoAnalisarArquivo(
       502,
     );
   }
-  const ehPdf = bytes[0] === 0x25 && bytes[1] === 0x50 &&
-    bytes[2] === 0x44 && bytes[3] === 0x46;
-  if (!ehPdf) {
-    return respostaJson(
-      { erro: "este arquivo não é um PDF — baixe-o e converta, ou anexe outro" },
-      400,
-    );
-  }
 
   try {
-    const extraido = await extrairTextoPdfBytes(bytes);
-    if (!extraido.texto.trim()) {
-      return respostaJson(
-        { erro: "o PDF não contém texto extraível (provavelmente escaneado como imagem)" },
-        400,
-      );
-    }
+    const extraido = await extrairTextoDeArquivo(bytes);
     const nome = arquivo.titulo ??
-      `documento-${arquivo.sequencialDocumento}.pdf`;
+      `documento-${arquivo.sequencialDocumento}`;
     const resumo = await gravarDocumentoNaConversa(
       supabase,
       conversaId,
@@ -201,9 +239,10 @@ async function modoAnalisarArquivo(
       extraido.paginas,
     );
     return respostaJson(resumo, 200);
-  } catch {
+  } catch (erro) {
+    if (erro instanceof Error && erro.message.startsWith("Falha ao")) throw erro;
     return respostaJson(
-      { erro: "não foi possível ler este PDF (arquivo corrompido ou protegido)" },
+      { erro: erro instanceof Error ? erro.message : "não foi possível ler o arquivo" },
       400,
     );
   }
@@ -215,7 +254,7 @@ async function modoPdfAnexado(
 ): Promise<Response> {
   const base64 = corpo.pdf_base64 as string;
   if (base64.length > MAX_BASE64_PDF) {
-    return respostaJson({ erro: "PDF grande demais (limite ~6 MB)" }, 400);
+    return respostaJson({ erro: "arquivo grande demais (limite ~6 MB)" }, 400);
   }
   const conversaId = await validarConversa(supabase, corpo?.conversa_id);
   if (!conversaId) {
@@ -223,16 +262,11 @@ async function modoPdfAnexado(
   }
   const nome = typeof corpo?.pdf_nome === "string" && corpo.pdf_nome
     ? (corpo.pdf_nome as string).slice(0, 120)
-    : "documento.pdf";
+    : "documento";
 
   try {
-    const extraido = await extrairTextoPdf(base64);
-    if (!extraido.texto.trim()) {
-      return respostaJson(
-        { erro: "o PDF não contém texto extraível (provavelmente escaneado como imagem)" },
-        400,
-      );
-    }
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const extraido = await extrairTextoDeArquivo(bytes);
     const resumo = await gravarDocumentoNaConversa(
       supabase,
       conversaId,
@@ -242,11 +276,9 @@ async function modoPdfAnexado(
     );
     return respostaJson(resumo, 200);
   } catch (erro) {
-    if (erro instanceof Error && erro.message.startsWith("Falha ao gravar")) {
-      throw erro;
-    }
+    if (erro instanceof Error && erro.message.startsWith("Falha ao")) throw erro;
     return respostaJson(
-      { erro: "não foi possível ler este PDF (arquivo corrompido ou protegido)" },
+      { erro: erro instanceof Error ? erro.message : "não foi possível ler o arquivo" },
       400,
     );
   }

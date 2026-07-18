@@ -209,6 +209,25 @@ function ChatAnalise() {
     return data.id;
   }
 
+  /**
+   * A Edge Function devolve a explicação real no corpo JSON mesmo em erro
+   * (não-2xx); o supabase-js só expõe uma mensagem genérica. Lê o corpo para
+   * mostrar ao usuário o motivo de verdade.
+   */
+  async function mensagemDaFuncao(
+    erroFuncao: unknown,
+    fallback: string,
+  ): Promise<string> {
+    const contexto = (erroFuncao as { context?: Response })?.context;
+    try {
+      const corpo = await contexto?.json?.();
+      if (corpo?.erro) return corpo.erro as string;
+    } catch {
+      // corpo não-JSON: usa o fallback
+    }
+    return (erroFuncao as { message?: string })?.message ?? fallback;
+  }
+
   /** Atualiza o estado do chat com o documento gravado no servidor. */
   function refletirDocumento(gravado: DocumentoGravadoResposta) {
     setDocumento({
@@ -234,7 +253,11 @@ function ChatAnalise() {
           conversa_id: await garantirConversa(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        throw new Error(
+          await mensagemDaFuncao(error, "não foi possível ler o arquivo"),
+        );
+      }
       const gravado = data as DocumentoGravadoResposta;
       if (gravado?.erro || !gravado?.nome) {
         throw new Error(gravado?.erro ?? "não foi possível ler o arquivo");
@@ -243,8 +266,8 @@ function ChatAnalise() {
     } catch (excecao) {
       setErro(
         excecao instanceof Error
-          ? `Falha ao analisar o arquivo: ${excecao.message}`
-          : "Falha ao analisar o arquivo.",
+          ? `Não deu para analisar: ${excecao.message}`
+          : "Não deu para analisar o arquivo.",
       );
     } finally {
       setAnalisandoSequencial(null);
@@ -257,12 +280,13 @@ function ChatAnalise() {
     if (!arquivo) return;
 
     setErro(null);
-    if (!arquivo.name.toLowerCase().endsWith(".pdf")) {
-      setErro("Anexe um arquivo PDF.");
+    const nomeMinusculo = arquivo.name.toLowerCase();
+    if (!nomeMinusculo.endsWith(".pdf") && !nomeMinusculo.endsWith(".docx")) {
+      setErro("Anexe um arquivo PDF ou Word (.docx).");
       return;
     }
     if (arquivo.size > MAX_BYTES_PDF) {
-      setErro("PDF grande demais — o limite é 6 MB.");
+      setErro("Arquivo grande demais — o limite é 6 MB.");
       return;
     }
 
@@ -277,17 +301,21 @@ function ChatAnalise() {
           conversa_id: await garantirConversa(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        throw new Error(
+          await mensagemDaFuncao(error, "não foi possível ler o arquivo"),
+        );
+      }
       const gravado = data as DocumentoGravadoResposta;
       if (gravado?.erro || !gravado?.nome) {
-        throw new Error(gravado?.erro ?? "não foi possível ler o PDF");
+        throw new Error(gravado?.erro ?? "não foi possível ler o arquivo");
       }
       refletirDocumento(gravado);
     } catch (excecao) {
       setErro(
         excecao instanceof Error
-          ? `Falha ao ler o PDF: ${excecao.message}`
-          : "Falha ao ler o PDF.",
+          ? `Não deu para ler o arquivo: ${excecao.message}`
+          : "Não deu para ler o arquivo.",
       );
     } finally {
       setExtraindo(false);
@@ -472,7 +500,7 @@ function ChatAnalise() {
           <input
             ref={seletorArquivo}
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             style={{ display: "none" }}
             onChange={anexarPdf}
           />
@@ -500,7 +528,7 @@ function ChatAnalise() {
                 disabled={extraindo}
                 onClick={() => seletorArquivo.current?.click()}
               >
-                {extraindo ? "Lendo PDF..." : "Anexar PDF (edital, termo de referência...)"}
+                {extraindo ? "Lendo arquivo..." : "Anexar arquivo (PDF ou Word)"}
               </button>
             </p>
           )}
