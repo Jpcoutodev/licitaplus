@@ -26,6 +26,19 @@ export function formatarData(data: string | null): string {
   return d.toLocaleDateString("pt-BR");
 }
 
+/**
+ * Monta o link da página oficial da licitação no PNCP a partir do número de
+ * controle ("CNPJ-1-SEQUENCIAL/ANO"). Toda licitação tem esse número, então
+ * o link do PNCP está sempre disponível — ao contrário do link do sistema de
+ * origem, que o órgão pode não informar.
+ */
+export function linkPaginaPncp(numeroControle: string): string | null {
+  const partes = numeroControle.match(/^(\d{14})-\d-(\d+)\/(\d{4})$/);
+  if (!partes) return null;
+  const [, cnpj, sequencial, ano] = partes;
+  return `https://pncp.gov.br/app/editais/${cnpj}/${ano}/${Number(sequencial)}`;
+}
+
 /** Cartão de licitação usado no painel e nos favoritos. */
 export function LicitacaoCartao({
   licitacao,
@@ -39,6 +52,12 @@ export function LicitacaoCartao({
   mostrarAnalise?: boolean;
 }) {
   const l = licitacao;
+  const linkPncp = linkPaginaPncp(l.numero_controle_pncp);
+  // Só mostra "sistema de origem" se for um link externo de fato (não o PNCP).
+  const linkOrigem = l.link_sistema_origem?.startsWith("http") &&
+      !l.link_sistema_origem.includes("pncp.gov.br")
+    ? l.link_sistema_origem
+    : null;
   return (
     <div className="cartao item-licitacao">
       <div className="estrela-canto">
@@ -65,8 +84,13 @@ export function LicitacaoCartao({
             Analisar com IA →
           </Link>
         )}
-        {l.link_sistema_origem?.startsWith("http") && (
-          <a href={l.link_sistema_origem} target="_blank" rel="noreferrer">
+        {linkPncp && (
+          <a href={linkPncp} target="_blank" rel="noreferrer">
+            Ver no PNCP ↗
+          </a>
+        )}
+        {linkOrigem && (
+          <a href={linkOrigem} target="_blank" rel="noreferrer">
             Ver no sistema de origem ↗
           </a>
         )}
