@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconeSair, NavPainel } from "./nav";
+import { BottomNav } from "./bottom-nav";
 import { Logo, MarcaLogo } from "../logo";
 import { criarClientServidor } from "@/lib/supabase/server";
 
@@ -47,8 +48,23 @@ export default async function LayoutPainel({
       </aside>
 
       <div className="conteudo">
+        {/* Topo compacto só no celular */}
+        <header className="topo-mobile">
+          <Link href="/painel" aria-label="Licitaplus">
+            <Logo tamanho={28} />
+          </Link>
+          <form action="/auth/sair" method="post">
+            <button type="submit" className="botao-fantasma">
+              Sair
+            </button>
+          </form>
+        </header>
+
         <main className="container">{children}</main>
       </div>
+
+      {/* Navegação inferior só no celular */}
+      <BottomNav admin={ehAdmin} />
     </div>
   );
 }
