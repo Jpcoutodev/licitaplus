@@ -1,8 +1,10 @@
 import type { Artigo, MetaPost } from "./tipos";
 import ondeEncontrar from "./conteudo/onde-encontrar-licitacoes-abertas";
+import comoVender from "./conteudo/como-vender-para-o-governo";
+import participarMei from "./conteudo/como-participar-de-licitacao-mei-pequena-empresa";
 
 /** Registro de todos os artigos do blog. Novos posts entram aqui. */
-export const ARTIGOS: Artigo[] = [ondeEncontrar];
+export const ARTIGOS: Artigo[] = [comoVender, participarMei, ondeEncontrar];
 
 /** Metadados ordenados do mais recente para o mais antigo (índice do blog). */
 export const POSTS: MetaPost[] = ARTIGOS

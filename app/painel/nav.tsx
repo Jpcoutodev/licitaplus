@@ -73,12 +73,26 @@ const ABAS = [
   },
 ];
 
-export function NavPainel() {
+const ABA_METRICAS = {
+  rota: "/painel/metricas",
+  nome: "Métricas",
+  icone: (
+    <>
+      <path d="M3 3v18h18" />
+      <rect x="7" y="12" width="3" height="5" />
+      <rect x="12" y="8" width="3" height="9" />
+      <rect x="17" y="5" width="3" height="12" />
+    </>
+  ),
+};
+
+export function NavPainel({ admin = false }: { admin?: boolean }) {
   const rotaAtual = usePathname();
+  const abas = admin ? [...ABAS, ABA_METRICAS] : ABAS;
 
   return (
     <nav className="sidebar-nav">
-      {ABAS.map((aba) => (
+      {abas.map((aba) => (
         <Link
           key={aba.rota}
           href={aba.rota}

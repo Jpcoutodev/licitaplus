@@ -1,9 +1,26 @@
 import Link from "next/link";
 import { IconeSair, NavPainel } from "./nav";
+import { criarClientServidor } from "@/lib/supabase/server";
 
-export default function LayoutPainel({
+export default async function LayoutPainel({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Descobre se o usuário é admin (só ele vê a aba Métricas). A RLS de
+  // `admins` deixa cada um ler apenas a própria linha.
+  const supabase = await criarClientServidor();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let ehAdmin = false;
+  if (user?.email) {
+    const { data } = await supabase
+      .from("admins")
+      .select("email")
+      .eq("email", user.email)
+      .maybeSingle();
+    ehAdmin = Boolean(data);
+  }
+
   return (
     <div className="layout-app">
       <aside className="sidebar">
@@ -16,7 +33,7 @@ export default function LayoutPainel({
           </span>
         </Link>
 
-        <NavPainel />
+        <NavPainel admin={ehAdmin} />
 
         <div className="sidebar-rodape">
           <form action="/auth/sair" method="post">
