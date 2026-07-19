@@ -182,6 +182,13 @@ export default function PaginaPerfil() {
               Até {limites.maxPalavrasChave} palavras-chave no plano gratuito.
               Pressione Enter ou clique em Adicionar.
             </p>
+            <div className="dica-perfil">
+              <strong>Dica:</strong> cada palavra-chave é buscada separadamente —
+              quanto mais <strong>variações e sinônimos</strong> você adicionar,
+              mais licitações aparecem. Ex.: para inteligência artificial, use
+              também <em>machine learning</em> e <em>aprendizado de máquina</em>;
+              para limpeza, <em>produtos de limpeza</em> e <em>saneantes</em>.
+            </div>
             <div style={{ marginTop: 8 }}>
               {palavras.map((palavra) => (
                 <span key={palavra} className="etiqueta">

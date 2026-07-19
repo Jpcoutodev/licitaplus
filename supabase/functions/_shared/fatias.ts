@@ -85,6 +85,13 @@ const GRUPOS_SINONIMOS: string[][] = [
   ["papelaria", "material de escritório", "material de expediente"],
   ["combustível", "gasolina", "diesel", "etanol"],
   ["informática", "tecnologia da informação"],
+  [
+    "inteligência artificial",
+    "aprendizado de máquina",
+    "aprendizado profundo",
+    "machine learning",
+    "redes neurais",
+  ],
 ];
 
 /**

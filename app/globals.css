@@ -1383,3 +1383,17 @@ main.container {
   border: 1px solid #fecaca;
 }
 .botao-perigo:hover { background: #fee2e2; filter: none; }
+
+.dica-perfil {
+  margin-top: 10px;
+  padding: 10px 13px;
+  background: var(--primaria-suave);
+  border: 1px solid transparent;
+  border-left: 3px solid var(--primaria);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--texto);
+}
+.dica-perfil strong { color: var(--primaria-escura); }
+.dica-perfil em { font-style: normal; font-weight: 600; }
