@@ -16,18 +16,26 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { conversarComIA, type MensagemChat } from "../_shared/ia/minimax.ts";
+import {
+  conversarComIA,
+  type DefinicaoFerramenta,
+  type MensagemChat,
+} from "../_shared/ia/minimax.ts";
 import {
   baixarArquivoContratacao,
   buscarItensContratacao,
+  buscarPorTermoTextual,
   type ItemContratacaoPNCP,
   listarArquivosContratacao,
 } from "../_shared/pncp/cliente.ts";
+import type { LicitacaoColetada } from "../_shared/pncp/tipos.ts";
 import { extrairTextoPdfBytes } from "../_shared/pdf.ts";
 import { extrairTextoDocx, pareceZip } from "../_shared/docx.ts";
 import { dividirEmTrechos, extrairSumario } from "../_shared/trechos.ts";
 import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
 
+/** Máximo de licitações da busca ao vivo entregues à IA por chamada. */
+const MAX_ACHADOS_BUSCA = 15;
 const MAX_MENSAGENS = 16;
 const MAX_TAMANHO_MENSAGEM = 4000;
 const MAX_ITENS_NO_CONTEXTO = 40;
@@ -134,6 +142,89 @@ const COLUNAS_CONTEXTO =
    valor_total_estimado, data_abertura_proposta, data_encerramento_proposta,
    orgao_razao_social, unidade_nome, uf, municipio_nome, modalidade_nome,
    situacao_nome, link_sistema_origem`;
+
+// ---------------------------------------------------------------------------
+// Ferramentas da IA (function calling) — busca ao vivo no PNCP
+// ---------------------------------------------------------------------------
+
+const FERRAMENTAS: DefinicaoFerramenta[] = [
+  {
+    type: "function",
+    function: {
+      name: "buscar_licitacoes",
+      description:
+        "Busca, em tempo real, licitações com propostas ABERTAS agora na base " +
+        "oficial do PNCP (Portal Nacional de Contratações Públicas), cobrindo " +
+        "todo o Brasil. Use sempre que o usuário pedir para encontrar/pesquisar " +
+        "oportunidades ou disser o que a empresa vende. Retorna as licitações " +
+        "mais recentes que casam com o termo.",
+      parameters: {
+        type: "object",
+        properties: {
+          termo: {
+            type: "string",
+            description:
+              "Palavras-chave do que a empresa fornece (ex.: 'material de " +
+              "limpeza', 'serviço de informática', 'merenda escolar').",
+          },
+          uf: {
+            type: "string",
+            description:
+              "Opcional. Sigla do estado (ex.: SP, RJ, MG) para restringir. " +
+              "Omita para buscar no Brasil inteiro.",
+          },
+        },
+        required: ["termo"],
+      },
+    },
+  },
+];
+
+/** Executa a ferramenta pedida pela IA e devolve o resultado como texto. */
+async function executarFerramenta(
+  nome: string,
+  args: Record<string, unknown>,
+): Promise<string> {
+  if (nome !== "buscar_licitacoes") {
+    return `ferramenta desconhecida: ${nome}`;
+  }
+  const termo = typeof args.termo === "string" ? args.termo.trim() : "";
+  if (!termo) return "Informe um termo de busca (o que a empresa vende).";
+  const uf = typeof args.uf === "string" && args.uf.trim()
+    ? args.uf.trim().toUpperCase().slice(0, 2)
+    : undefined;
+
+  try {
+    const achados = await buscarPorTermoTextual(termo, uf);
+    if (!achados || achados.length === 0) {
+      return `Nenhuma licitação com propostas abertas encontrada para "${termo}"${
+        uf ? ` em ${uf}` : " no Brasil"
+      } neste momento.`;
+    }
+    return formatarAchadosPncp(achados.slice(0, MAX_ACHADOS_BUSCA));
+  } catch (erro) {
+    return `Não foi possível consultar o PNCP agora: ${
+      erro instanceof Error ? erro.message : "erro"
+    }.`;
+  }
+}
+
+function formatarAchadosPncp(achados: LicitacaoColetada[]): string {
+  const cabecalho =
+    `${achados.length} licitação(ões) com propostas abertas encontradas no PNCP:\n`;
+  const corpo = achados
+    .map((l, i) =>
+      [
+        `${i + 1}. ${(l.objeto_compra ?? "?").slice(0, 200)}`,
+        `   Órgão: ${l.orgao_razao_social ?? "?"} — ${l.municipio_nome ?? "?"}/${l.uf ?? "?"}`,
+        `   Modalidade: ${l.modalidade_nome ?? "?"} | Valor estimado: ${l.valor_total_estimado ?? "não informado"}`,
+        `   Publicada em: ${l.data_publicacao_pncp ?? "?"} | Controle PNCP: ${l.numero_controle_pncp}`,
+        `   Link: ${l.link_sistema_origem ?? "—"}`,
+      ].join("\n")
+    )
+    .join("\n\n");
+  return cabecalho + corpo;
+}
 
 Deno.serve(async (req) => {
   const preflight = respostaPreflight(req);
@@ -328,6 +419,11 @@ async function modoConversa(
       ...mensagens,
     ],
     4096,
+    {
+      ferramentas: FERRAMENTAS,
+      executarFerramenta,
+      maxCiclosFerramenta: 3,
+    },
   );
 
   console.log(
@@ -556,6 +652,22 @@ const INSTRUCOES = `Você é um consultor sênior em licitações públicas bras
 atendendo donos de pequenas e médias empresas leigos no assunto, dentro do app
 Licitaplus (aba "Análise IA").
 
+BUSCA DE LICITAÇÕES (você TEM esta ferramenta — use-a):
+- Você PODE pesquisar, em tempo real, licitações com propostas abertas agora em
+  TODO O BRASIL, na base oficial do PNCP, chamando a ferramenta
+  buscar_licitacoes (parâmetros: termo e, opcional, uf). Use-a sempre que o
+  usuário pedir para encontrar/pesquisar oportunidades ou disser o que a empresa
+  vende. Se faltar o ramo/produto, pergunte em uma frase e então busque.
+- Depois de buscar, apresente as melhores opções em linguagem simples (objeto,
+  órgão, cidade/UF, valor estimado, e SEMPRE o link do PNCP de cada uma).
+- Seja honesto sobre o alcance: sua fonte ao vivo é a base oficial do PNCP (que
+  reúne as contratações públicas do país inteiro) — você NÃO faz navegação livre
+  na web (Google, sites avulsos). Se perguntarem "você tem acesso à internet?",
+  responda com franqueza: sim, você consulta em tempo real as licitações abertas
+  do PNCP no Brasil todo e pode buscar por ramo/produto/estado; o que você não
+  faz é navegar em sites da web em geral.
+- NUNCA invente resultados: cite apenas licitações que a ferramenta retornou.
+
 COMO RESPONDER:
 - Vá direto ao ponto. Responda a pergunta primeiro, com orientação prática.
 - NÃO explique como você "lê o documento", "busca por palavras-chave" ou quais
@@ -625,7 +737,12 @@ function montarContexto(
     }
   } else {
     blocos.push(
-      "## Licitação em análise\nNenhuma licitação selecionada — responda perguntas gerais normalmente e convide o usuário a escolher uma favorita para análise detalhada.",
+      "## Licitação em análise\nNenhuma licitação selecionada. Se o usuário " +
+        "quiser encontrar oportunidades, use a ferramenta buscar_licitacoes " +
+        "(pergunte o ramo/produto e, se ele quiser, o estado) e apresente os " +
+        "resultados com o link do PNCP. Também responda perguntas gerais " +
+        "normalmente e, quando fizer sentido, convide-o a escolher uma favorita " +
+        "para análise detalhada do edital.",
     );
   }
 
