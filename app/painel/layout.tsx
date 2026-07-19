@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { IconeSair, NavPainel } from "./nav";
 import { BottomNav } from "./bottom-nav";
+import { InstalarApp } from "./instalar";
 import { Logo, MarcaLogo } from "../logo";
 import { criarClientServidor } from "@/lib/supabase/server";
+
+// Manifesto do PWA só nas rotas do painel (o app instalável é o sistema).
+export const metadata: Metadata = {
+  manifest: "/manifest-app",
+  robots: { index: false, follow: false },
+};
 
 export default async function LayoutPainel({
   children,
@@ -60,7 +68,10 @@ export default async function LayoutPainel({
           </form>
         </header>
 
-        <main className="container">{children}</main>
+        <main className="container">
+          <InstalarApp />
+          {children}
+        </main>
       </div>
 
       {/* Navegação inferior só no celular */}

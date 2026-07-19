@@ -1268,3 +1268,26 @@ main.container {
   }
   .item-licitacao:hover { transform: none; }
 }
+
+/* ---------- convite de instalação do PWA ---------- */
+.banner-instalar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: var(--gradiente-marca);
+  color: #fff;
+  border-radius: var(--raio);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  box-shadow: var(--sombra-alta);
+}
+.banner-instalar-texto { display: flex; flex-direction: column; gap: 2px; }
+.banner-instalar-texto strong { font-size: 15px; }
+.banner-instalar-texto .texto-suave { color: rgba(255, 255, 255, 0.85); font-size: 13.5px; }
+.banner-instalar-acoes { display: flex; align-items: center; gap: 8px; }
+.banner-instalar .botao { background: #fff; color: var(--primaria-escura); }
+.banner-instalar .botao:hover { background: #eef4ff; filter: none; }
+.banner-instalar .botao-fantasma { color: rgba(255, 255, 255, 0.9); }
+.banner-instalar .botao-fantasma:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
