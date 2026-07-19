@@ -948,3 +948,142 @@ main.container {
     font-size: 34px;
   }
 }
+
+/* =========================================================
+   Blog
+   ========================================================= */
+
+/* índice */
+.blog-indice { padding-top: 40px; padding-bottom: 64px; }
+.blog-indice-topo { margin-bottom: 32px; }
+.blog-indice-topo h1 { font-size: 34px; letter-spacing: -0.02em; }
+.blog-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+.blog-card {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  transition: box-shadow 0.15s, transform 0.05s;
+}
+.blog-card:hover { box-shadow: var(--sombra-alta); transform: translateY(-2px); }
+.blog-card-link { display: block; padding: 22px; color: inherit; }
+.blog-card-link:hover { text-decoration: none; }
+.blog-card-cat {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primaria);
+  margin-bottom: 8px;
+}
+.blog-card h2, .blog-card h3 { font-size: 18px; margin-bottom: 8px; letter-spacing: -0.01em; }
+.blog-card-meta { display: block; margin-top: 12px; font-size: 13px; }
+
+/* artigo */
+.artigo {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-top: 32px;
+}
+.artigo-trilha { font-size: 14px; margin-bottom: 16px; }
+.artigo-trilha span { margin: 0 4px; }
+.artigo-titulo {
+  font-size: 38px;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  margin-bottom: 12px;
+}
+.artigo-meta { font-size: 14px; margin-bottom: 28px; }
+
+/* prosa legível */
+.artigo-corpo { font-size: 18px; line-height: 1.75; color: #1f2430; }
+.artigo-corpo h2 {
+  font-size: 25px;
+  letter-spacing: -0.02em;
+  margin: 40px 0 14px;
+  padding-top: 8px;
+}
+.artigo-corpo h3 { font-size: 20px; margin: 28px 0 10px; }
+.artigo-corpo p { margin: 0 0 18px; }
+.artigo-corpo ul, .artigo-corpo ol { margin: 0 0 18px; padding-left: 26px; }
+.artigo-corpo li { margin: 8px 0; }
+.artigo-corpo a { color: var(--primaria); text-decoration: underline; text-underline-offset: 2px; }
+.artigo-corpo strong { color: #0f1420; }
+
+.artigo-tabela-scroll { overflow-x: auto; margin: 0 0 22px; }
+.artigo-corpo table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15.5px;
+}
+.artigo-corpo th, .artigo-corpo td {
+  border: 1px solid var(--borda);
+  padding: 10px 13px;
+  text-align: left;
+  vertical-align: top;
+}
+.artigo-corpo th { background: var(--primaria-suave); color: var(--primaria-escura); font-weight: 700; }
+
+/* resposta rápida (extraída por IA) */
+.artigo-resposta {
+  background: var(--primaria-suave);
+  border: 1px solid #cfe0ff;
+  border-radius: var(--raio);
+  padding: 18px 20px;
+  margin: 8px 0 28px;
+}
+.artigo-resposta-rotulo {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primaria-escura);
+  margin-bottom: 6px;
+}
+.artigo-resposta p { margin: 0; font-size: 17px; }
+
+/* caixa de destaque */
+.artigo-destaque {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--primaria);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin: 0 0 24px;
+  font-size: 16px;
+}
+.artigo-destaque strong { display: block; margin-bottom: 6px; }
+
+/* CTA inline */
+.artigo-cta {
+  background: linear-gradient(135deg, var(--primaria-escura), var(--primaria));
+  color: #fff;
+  border-radius: var(--raio);
+  padding: 28px;
+  margin: 32px 0;
+  text-align: center;
+}
+.artigo-cta h3 { font-size: 21px; margin-bottom: 8px; }
+.artigo-cta p { opacity: 0.94; margin-bottom: 18px; font-size: 16px; }
+
+/* faq e relacionados */
+.artigo-faq { margin-top: 40px; }
+.artigo-faq h2 { font-size: 25px; margin-bottom: 16px; letter-spacing: -0.02em; }
+.artigo-relacionados {
+  max-width: 720px;
+  margin: 48px auto 64px;
+  border-top: 1px solid var(--borda);
+  padding-top: 28px;
+}
+.artigo-relacionados > h2 { font-size: 20px; margin-bottom: 16px; }
+
+@media (max-width: 640px) {
+  .artigo-titulo { font-size: 30px; }
+  .artigo-corpo { font-size: 17px; }
+}

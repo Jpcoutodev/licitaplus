@@ -159,6 +159,7 @@ export default function PaginaInicial() {
             Licita<span>plus</span>
           </Link>
           <nav className="lp-nav">
+            <Link href="/blog">Blog</Link>
             <Link href="/login">Entrar</Link>
             <Link href="/login" className="botao">
               Teste grátis
@@ -319,6 +320,7 @@ export default function PaginaInicial() {
             </p>
           </div>
           <nav className="lp-rodape-nav">
+            <Link href="/blog">Blog</Link>
             <Link href="/login">Entrar</Link>
             <Link href="/login">Criar conta</Link>
           </nav>
