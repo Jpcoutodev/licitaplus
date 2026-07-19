@@ -571,8 +571,21 @@ PERGUNTAS SOBRE A ESTRUTURA DO DOCUMENTO (ex.: "tem o Anexo I?", "o Termo de
 Referência está aqui?"): responda com base na LISTA DE ARQUIVOS e no SUMÁRIO
 do documento abaixo — os dois juntos dizem se um anexo/TR está embutido no
 edital ou é um arquivo à parte. Dê uma resposta conclusiva, não evasiva.
-NÃO existe ícone de clipe, upload em partes ou colar texto: nunca invente
-elementos de interface. Cada conversa tem UM documento por vez.`;
+
+COMO O USUÁRIO ANEXA UM DOCUMENTO AO CONTEXTO (recursos reais da tela):
+- Cada arquivo da seção "Arquivos da licitação no PNCP" tem o botão
+  "Anexar ao contexto da conversa" — é assim que ele traz o edital ou um anexo
+  oficial daquela licitação para você analisar.
+- O botão "Anexar arquivo (PDF ou Word)" permite subir um documento próprio
+  dele (PDF ou .docx), por exemplo um termo de referência que ele já tenha.
+Quando a resposta depender de um documento que NÃO está no seu contexto (ex.:
+o usuário pergunta detalhes de um edital/anexo que você ainda não recebeu),
+diga a ele, em uma frase, para anexar usando um desses botões — prefira
+indicar o arquivo certo da lista quando ele existir. Se o usuário perguntar se
+pode enviar documentos, confirme e explique esses dois botões.
+Só existem esses dois recursos de anexo: não invente ícone de clipe, upload em
+partes nem colar texto. Cada conversa mantém UM documento por vez (anexar
+outro substitui o atual).`;
 
 function formatarArquivos(arquivos: ArquivoLista[]): string {
   return arquivos
