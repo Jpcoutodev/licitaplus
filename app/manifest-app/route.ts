@@ -1,10 +1,12 @@
 /**
  * Manifesto do PWA servido como rota própria e referenciado APENAS no layout
  * do /painel — assim o app instalável é o "sistema", e o blog/landing não
- * oferecem instalação.
+ * oferecem instalação. Ícones são arquivos .png estáticos (mais compatíveis
+ * com a barra de tarefas do Windows que rotas sem extensão).
  */
 export function GET() {
   const manifest = {
+    id: "/painel",
     name: "Licitaplus",
     short_name: "Licitaplus",
     description:
@@ -16,14 +18,9 @@ export function GET() {
     theme_color: "#0d1626",
     lang: "pt-BR",
     icons: [
-      { src: "/icone-192", sizes: "192x192", type: "image/png" },
-      { src: "/icone-512", sizes: "512x512", type: "image/png" },
-      {
-        src: "/icone-512",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
-      },
+      { src: "/icone-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icone-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icone-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 

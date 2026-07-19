@@ -10,6 +10,11 @@ import { criarClientServidor } from "@/lib/supabase/server";
 export const metadata: Metadata = {
   manifest: "/manifest-app",
   robots: { index: false, follow: false },
+  icons: {
+    icon: "/icone-192.png",
+    apple: "/icone-192.png",
+  },
+  appleWebApp: { capable: true, title: "Licitaplus", statusBarStyle: "default" },
 };
 
 export default async function LayoutPainel({
