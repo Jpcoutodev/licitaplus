@@ -70,6 +70,19 @@ const ABAS: Aba[] = [
     ),
   },
   {
+    rota: "/painel/chamados",
+    nome: "Chamados",
+    curto: "Suporte",
+    icone: (
+      <>
+        <path d="M4 13v-1a8 8 0 0 1 16 0v1" />
+        <rect x="2.5" y="12.5" width="4" height="6.5" rx="1.4" />
+        <rect x="17.5" y="12.5" width="4" height="6.5" rx="1.4" />
+        <path d="M20 19a3.5 3.5 0 0 1-3.5 3H13" />
+      </>
+    ),
+  },
+  {
     rota: "/painel/configuracoes",
     nome: "Configurações",
     curto: "Config",

@@ -1291,3 +1291,81 @@ main.container {
 .banner-instalar .botao:hover { background: #eef4ff; filter: none; }
 .banner-instalar .botao-fantasma { color: rgba(255, 255, 255, 0.9); }
 .banner-instalar .botao-fantasma:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+
+/* ---------- chamados (suporte) ---------- */
+
+.chamado-status {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  vertical-align: middle;
+}
+.chamado-status--aberto { background: var(--primaria-suave); color: var(--primaria-escura); }
+.chamado-status--em_andamento { background: #fef3c7; color: #b45309; }
+.chamado-status--respondido { background: #dcfce7; color: var(--verde-escuro); }
+.chamado-status--resolvido { background: #e0f2fe; color: #0369a1; }
+.chamado-status--fechado { background: #f1f5f9; color: #64748b; }
+
+.lista-chamados { display: flex; flex-direction: column; gap: 12px; }
+
+.chamado-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.05s;
+}
+.chamado-item:hover { border-color: var(--primaria); box-shadow: var(--sombra-alta); }
+.chamado-item:active { transform: translateY(1px); }
+.chamado-item-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.chamado-item-topo strong { font-size: 15px; }
+.chamado-item-meta { font-size: 13px; }
+
+.chamado-controles { padding: 16px 18px; margin-bottom: 16px; }
+
+.chamado-mensagens {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 0 18px;
+}
+.balao {
+  max-width: 88%;
+  border-radius: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--borda);
+}
+.balao-meu {
+  align-self: flex-end;
+  background: var(--primaria-suave);
+  border-color: transparent;
+}
+.balao-outro { align-self: flex-start; background: var(--superficie); }
+.balao-suporte.balao-outro {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.balao-autor {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--texto);
+  margin-bottom: 4px;
+}
+.balao-hora { font-weight: 500; color: var(--texto-suave); font-size: 11.5px; }
+.balao-texto { white-space: pre-wrap; font-size: 14px; line-height: 1.5; }
+
+.chamado-responder { display: flex; flex-direction: column; gap: 10px; }
+.chamado-responder textarea { width: 100%; resize: vertical; }
+.chamado-responder .botao { align-self: flex-start; }
