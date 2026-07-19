@@ -30,13 +30,15 @@ export default async function LayoutPainel({
 
   // Onboarding obrigatório: sem conta (nome da empresa + telefone) preenchida,
   // manda concluir antes de usar o painel.
+  let nomeEmpresa: string | null = null;
   if (user) {
     const { data: conta } = await supabase
       .from("contas")
-      .select("user_id")
+      .select("nome_empresa")
       .eq("user_id", user.id)
       .maybeSingle();
     if (!conta) redirect("/onboarding");
+    nomeEmpresa = (conta.nome_empresa as string) ?? null;
   }
 
   let ehAdmin = false;
@@ -64,6 +66,15 @@ export default async function LayoutPainel({
         <NavPainel admin={ehAdmin} />
 
         <div className="sidebar-rodape">
+          <div className="conta-chip" title={user?.email ?? ""}>
+            <span className="conta-avatar" aria-hidden>
+              {(nomeEmpresa ?? "?").trim().charAt(0).toUpperCase()}
+            </span>
+            <span className="conta-info">
+              <strong>{nomeEmpresa ?? "Minha empresa"}</strong>
+              <span>{user?.email}</span>
+            </span>
+          </div>
           <form action="/auth/sair" method="post">
             <button type="submit" className="item-nav" title="Sair">
               <IconeSair />
@@ -79,6 +90,7 @@ export default async function LayoutPainel({
           <Link href="/painel" aria-label="Licitaplus">
             <Logo tamanho={28} />
           </Link>
+          {nomeEmpresa && <span className="topo-empresa">{nomeEmpresa}</span>}
           <form action="/auth/sair" method="post">
             <button type="submit" className="botao-fantasma">
               Sair

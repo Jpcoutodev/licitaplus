@@ -1406,3 +1406,60 @@ main.container {
   text-transform: uppercase;
   color: var(--primaria);
 }
+
+/* identidade da empresa na sidebar (fundo escuro) */
+.conta-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px 10px;
+  min-width: 0;
+}
+.conta-avatar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #16a34a);
+}
+.conta-info { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.conta-info strong {
+  color: #eef2f8;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conta-info span {
+  color: #9fb0c9;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* nome da empresa no topo do celular */
+.topo-empresa {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 10px;
+}
+
+.etiqueta-empresa {
+  background: var(--primaria-suave);
+  color: var(--primaria-escura);
+  border-color: transparent;
+  font-weight: 600;
+}

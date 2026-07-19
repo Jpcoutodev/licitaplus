@@ -74,6 +74,7 @@ export default function PaginaChamados() {
   const [modoAdmin, setModoAdmin] = useState(false);
 
   const [chamados, setChamados] = useState<Chamado[]>([]);
+  const [empresas, setEmpresas] = useState<Record<string, string>>({});
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [selecionado, setSelecionado] = useState<Chamado | null>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -118,7 +119,25 @@ export default function PaginaChamados() {
       .order("updated_at", { ascending: false });
     if (!(modoAdmin && souAdmin)) consulta = consulta.eq("user_id", meuId);
     const { data } = await consulta;
-    setChamados((data ?? []) as Chamado[]);
+    const lista = (data ?? []) as Chamado[];
+    setChamados(lista);
+
+    // No modo admin, resolve o nome da empresa de cada solicitante.
+    if (modoAdmin && souAdmin && lista.length > 0) {
+      const ids = [...new Set(lista.map((c) => c.user_id))];
+      const { data: contas } = await supabase
+        .from("contas")
+        .select("user_id, nome_empresa")
+        .in("user_id", ids);
+      const mapa: Record<string, string> = {};
+      for (const c of (contas ?? []) as Array<{
+        user_id: string;
+        nome_empresa: string;
+      }>) {
+        mapa[c.user_id] = c.nome_empresa;
+      }
+      setEmpresas(mapa);
+    }
     setCarregandoLista(false);
   }, [meuId, modoAdmin, souAdmin]);
 
@@ -276,8 +295,17 @@ export default function PaginaChamados() {
                 {ROTULO_CATEGORIA[selecionado.categoria] ?? selecionado.categoria}
               </span>
               <EtiquetaStatus status={selecionado.status} />
-              {modoAdmin && souAdmin && selecionado.email && (
-                <span className="etiqueta">{selecionado.email}</span>
+              {modoAdmin && souAdmin && (
+                <>
+                  {empresas[selecionado.user_id] && (
+                    <span className="etiqueta etiqueta-empresa">
+                      {empresas[selecionado.user_id]}
+                    </span>
+                  )}
+                  {selecionado.email && (
+                    <span className="etiqueta">{selecionado.email}</span>
+                  )}
+                </>
               )}
             </p>
           </div>
@@ -482,7 +510,9 @@ export default function PaginaChamados() {
                 <span className="etiqueta">
                   {ROTULO_CATEGORIA[c.categoria] ?? c.categoria}
                 </span>
-                {modoAdmin && souAdmin && c.email ? `${c.email} · ` : ""}
+                {modoAdmin && souAdmin
+                  ? `${[empresas[c.user_id], c.email].filter(Boolean).join(" · ")} · `
+                  : ""}
                 atualizado em {formatarData(c.updated_at)}
               </div>
             </button>
