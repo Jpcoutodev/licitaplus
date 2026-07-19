@@ -35,7 +35,9 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && request.nextUrl.pathname.startsWith("/painel")) {
+  const rota = request.nextUrl.pathname;
+  const rotaProtegida = rota.startsWith("/painel") || rota.startsWith("/onboarding");
+  if (!user && rotaProtegida) {
     const destino = request.nextUrl.clone();
     destino.pathname = "/login";
     return NextResponse.redirect(destino);
@@ -45,5 +47,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/painel/:path*", "/login"],
+  matcher: ["/painel/:path*", "/onboarding", "/login"],
 };

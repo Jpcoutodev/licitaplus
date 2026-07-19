@@ -23,6 +23,16 @@ export default function PaginaPerfil() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  // Fluxo de onboarding (?inicio=1): ao salvar, segue para o painel.
+  const [modoInicio, setModoInicio] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setModoInicio(
+        new URLSearchParams(window.location.search).get("inicio") === "1",
+      );
+    }
+  }, []);
 
   useEffect(() => {
     async function carregar() {
@@ -132,6 +142,11 @@ export default function PaginaPerfil() {
         }
       }
 
+      // No onboarding, conclui indo para o painel (já com os primeiros
+      // resultados carregados pela busca retroativa).
+      if (modoInicio) {
+        roteador.push("/painel");
+      }
       roteador.refresh();
     } catch (excecao) {
       setErro(
@@ -146,9 +161,20 @@ export default function PaginaPerfil() {
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto" }}>
-      <h1 style={{ marginBottom: 16 }}>
-        {perfilId ? "Editar perfil" : "Criar perfil"}
+      {modoInicio && <p className="passo-onboarding">Passo 2 de 2</p>}
+      <h1 style={{ marginBottom: 6 }}>
+        {modoInicio
+          ? "Configure sua primeira busca"
+          : perfilId
+            ? "Editar perfil"
+            : "Criar perfil"}
       </h1>
+      {modoInicio && (
+        <p className="texto-suave" style={{ marginTop: 0, marginBottom: 16 }}>
+          Diga o que sua empresa vende e onde. Assim que salvar, seu painel abre
+          com as licitações compatíveis.
+        </p>
+      )}
 
       <form onSubmit={aoSalvar}>
         <div className="cartao">
@@ -290,7 +316,11 @@ export default function PaginaPerfil() {
           {sucesso && <p className="mensagem-sucesso">{sucesso}</p>}
 
           <button className="botao" type="submit" disabled={salvando}>
-            {salvando ? "Salvando..." : "Salvar perfil"}
+            {salvando
+              ? "Salvando..."
+              : modoInicio
+                ? "Salvar e ver meu painel"
+                : "Salvar perfil"}
           </button>
         </div>
       </form>

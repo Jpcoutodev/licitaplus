@@ -1397,3 +1397,12 @@ main.container {
 }
 .dica-perfil strong { color: var(--primaria-escura); }
 .dica-perfil em { font-style: normal; font-weight: 600; }
+
+.passo-onboarding {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primaria);
+}

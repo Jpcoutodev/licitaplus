@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { IconeSair, NavPainel } from "./nav";
 import { BottomNav } from "./bottom-nav";
 import { InstalarApp } from "./instalar";
@@ -26,6 +27,18 @@ export default async function LayoutPainel({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Onboarding obrigatório: sem conta (nome da empresa + telefone) preenchida,
+  // manda concluir antes de usar o painel.
+  if (user) {
+    const { data: conta } = await supabase
+      .from("contas")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!conta) redirect("/onboarding");
+  }
+
   let ehAdmin = false;
   if (user?.email) {
     const { data } = await supabase

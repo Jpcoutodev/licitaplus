@@ -30,7 +30,7 @@ export default function PaginaLogin() {
         });
         if (error) throw error;
         if (data.session) {
-          roteador.push("/painel/perfil");
+          roteador.push("/onboarding");
           roteador.refresh();
         } else {
           setAviso(
