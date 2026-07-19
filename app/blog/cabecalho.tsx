@@ -1,12 +1,13 @@
 import Link from "next/link";
+import { Logo } from "../logo";
 
 /** Topo e rodapé compartilhados pelas páginas públicas do blog. */
 export function CabecalhoBlog() {
   return (
     <header className="lp-topo">
       <div className="container lp-topo-linha">
-        <Link href="/" className="logo">
-          Licita<span>plus</span>
+        <Link href="/" aria-label="Licitaplus">
+          <Logo />
         </Link>
         <nav className="lp-nav">
           <Link href="/blog">Blog</Link>
@@ -25,8 +26,8 @@ export function RodapeBlog() {
     <footer className="lp-rodape">
       <div className="container lp-rodape-linha">
         <div>
-          <Link href="/" className="logo">
-            Licita<span>plus</span>
+          <Link href="/" aria-label="Licitaplus">
+            <Logo />
           </Link>
           <p className="texto-suave" style={{ marginTop: 6 }}>
             Licitações públicas sob medida para a sua empresa.

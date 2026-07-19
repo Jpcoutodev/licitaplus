@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "./logo";
 
 const FAQ = [
   {
@@ -155,8 +156,8 @@ export default function PaginaInicial() {
 
       <header className="lp-topo">
         <div className="container lp-topo-linha">
-          <Link href="/" className="logo">
-            Licita<span>plus</span>
+          <Link href="/" aria-label="Licitaplus">
+            <Logo />
           </Link>
           <nav className="lp-nav">
             <Link href="/blog">Blog</Link>
@@ -312,8 +313,8 @@ export default function PaginaInicial() {
       <footer className="lp-rodape">
         <div className="container lp-rodape-linha">
           <div>
-            <Link href="/" className="logo">
-              Licita<span>plus</span>
+            <Link href="/" aria-label="Licitaplus">
+              <Logo />
             </Link>
             <p className="texto-suave" style={{ marginTop: 6 }}>
               Licitações públicas sob medida para a sua empresa.

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconeSair, NavPainel } from "./nav";
+import { Logo, MarcaLogo } from "../logo";
 import { criarClientServidor } from "@/lib/supabase/server";
 
 export default async function LayoutPainel({
@@ -24,12 +25,12 @@ export default async function LayoutPainel({
   return (
     <div className="layout-app">
       <aside className="sidebar">
-        <Link href="/painel" className="logo" title="Licitaplus">
+        <Link href="/painel" className="sidebar-logo" title="Licitaplus">
           <span className="logo-completo">
-            Licita<span style={{ color: "var(--primaria)" }}>plus</span>
+            <Logo claro tamanho={30} />
           </span>
-          <span className="logo-curto" style={{ color: "var(--primaria)" }}>
-            L+
+          <span className="logo-curto">
+            <MarcaLogo tamanho={30} />
           </span>
         </Link>
 

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { criarClientNavegador } from "@/lib/supabase/client";
+import { Logo } from "../logo";
 
 export default function PaginaLogin() {
   const roteador = useRouter();
@@ -58,10 +60,10 @@ export default function PaginaLogin() {
 
   return (
     <div style={{ maxWidth: 420, margin: "56px auto", padding: "0 20px" }}>
-      <p style={{ textAlign: "center", marginBottom: 20 }}>
-        <a href="/" className="logo">
-          Licita<span>plus</span>
-        </a>
+      <p style={{ textAlign: "center", marginBottom: 20, display: "flex", justifyContent: "center" }}>
+        <Link href="/" aria-label="Licitaplus">
+          <Logo />
+        </Link>
       </p>
       <div className="cartao">
       <h2 style={{ marginBottom: 16 }}>

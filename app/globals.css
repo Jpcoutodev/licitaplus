@@ -8,6 +8,10 @@
   --primaria: #2563eb;
   --primaria-escura: #1d4ed8;
   --primaria-suave: #eff6ff;
+  --verde: #22c55e;
+  --verde-escuro: #16a34a;
+  --gradiente-marca: linear-gradient(135deg, #2563eb 0%, #1d4ed8 45%, #16a34a 130%);
+  --gradiente-btn: linear-gradient(135deg, #2563eb, #1d4ed8);
   --fundo: #f6f7f9;
   --superficie: #ffffff;
   --texto: #111827;
@@ -91,8 +95,12 @@ h3 { font-size: 16px; font-weight: 600; }
 .sidebar {
   width: 236px;
   flex-shrink: 0;
-  background: var(--superficie);
-  border-right: 1px solid var(--borda);
+  /* fundo escuro com brilho azul/verde, no clima da marca */
+  background:
+    radial-gradient(130% 55% at 18% 2%, rgba(34, 197, 94, 0.18), transparent 60%),
+    radial-gradient(120% 40% at 90% 0%, rgba(37, 99, 235, 0.22), transparent 55%),
+    linear-gradient(180deg, #0d1626 0%, #0a1120 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
   position: sticky;
   top: 0;
   height: 100vh;
@@ -101,10 +109,11 @@ h3 { font-size: 16px; font-weight: 600; }
   padding: 18px 12px 14px;
 }
 
-.sidebar .logo {
+.sidebar-logo {
   display: block;
-  padding: 4px 12px 20px;
+  padding: 6px 10px 22px;
 }
+.sidebar-logo:hover { text-decoration: none; }
 
 .sidebar-nav {
   display: flex;
@@ -119,10 +128,10 @@ h3 { font-size: 16px; font-weight: 600; }
   gap: 11px;
   padding: 10px 12px;
   border-radius: 10px;
-  color: var(--texto-suave);
+  color: #9fb0c9;
   font-weight: 500;
   font-size: 14px;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s, transform 0.06s;
 }
 
 .item-nav svg {
@@ -130,16 +139,18 @@ h3 { font-size: 16px; font-weight: 600; }
 }
 
 .item-nav:hover {
-  background: var(--fundo);
-  color: var(--texto);
+  background: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
   text-decoration: none;
 }
+.item-nav:active { transform: translateY(1px); }
 
 .item-nav-ativo,
 .item-nav-ativo:hover {
-  background: var(--primaria-suave);
-  color: var(--primaria-escura);
+  background: linear-gradient(90deg, #2563eb, #16a34a);
+  color: #ffffff;
   font-weight: 600;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
 }
 
 button.item-nav {
@@ -152,7 +163,7 @@ button.item-nav {
 }
 
 .sidebar-rodape {
-  border-top: 1px solid var(--borda);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 10px;
   margin-top: 10px;
 }
@@ -175,9 +186,9 @@ button.item-nav {
     padding: 14px 8px;
   }
 
-  .sidebar .logo {
+  .sidebar-logo {
     text-align: center;
-    padding: 4px 0 18px;
+    padding: 6px 0 18px;
   }
 
   .logo-completo { display: none; }
@@ -1117,4 +1128,104 @@ main.container {
 .tabela-metricas td:not(:first-child), .tabela-metricas th:not(:first-child) {
   text-align: right;
   white-space: nowrap;
+}
+
+/* =========================================================
+   Marca, movimento e profundidade (upgrade visual)
+   ========================================================= */
+
+/* marca (ícone + nome) */
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.marca-nome {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--texto);
+}
+.marca-clara .marca-nome { color: #ffffff; }
+
+/* botão primário com gradiente e brilho no hover */
+.botao {
+  background: var(--gradiente-btn);
+}
+.botao:hover {
+  background: var(--gradiente-btn);
+  filter: brightness(1.06);
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.32);
+}
+.botao-secundario,
+.botao-secundario:hover {
+  background: var(--superficie);
+  filter: none;
+  box-shadow: none;
+}
+.botao-claro { background: #fff; }
+.botao-claro:hover { background: #eef4ff; filter: none; }
+
+/* etiqueta "novo" com o acento da marca */
+.etiqueta-nova {
+  background: linear-gradient(135deg, var(--primaria), var(--verde));
+  color: #fff;
+  border-color: transparent;
+}
+
+/* movimento: entrada suave do conteúdo e realce ao passar o mouse */
+@keyframes lp-surgir {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.conteudo .cabecalho-pagina,
+.conteudo .cartao,
+.conteudo .metricas-cards {
+  animation: lp-surgir 0.4s ease both;
+}
+
+.cartao {
+  transition: box-shadow 0.2s ease, transform 0.12s ease, border-color 0.2s ease;
+}
+.item-licitacao:hover {
+  box-shadow: var(--sombra-alta);
+  transform: translateY(-2px);
+  border-color: #d3ddf0;
+}
+
+/* barra de acento no topo do cartão de licitação (toque de cor) */
+.item-licitacao {
+  position: relative;
+  overflow: hidden;
+}
+.item-licitacao::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--gradiente-marca);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.item-licitacao:hover::before { opacity: 1; }
+
+/* números do painel de métricas em gradiente */
+.metrica-num {
+  background: var(--gradiente-marca);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* respeita quem prefere menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  .conteudo .cabecalho-pagina,
+  .conteudo .cartao,
+  .conteudo .metricas-cards {
+    animation: none;
+  }
+  .item-licitacao:hover { transform: none; }
 }
