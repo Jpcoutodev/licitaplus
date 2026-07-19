@@ -217,6 +217,27 @@ export default function PaginaChamados() {
     if (data) setSelecionado(data as Chamado);
   }
 
+  async function excluirChamado() {
+    if (!selecionado) return;
+    if (
+      !window.confirm(
+        "Excluir este chamado e toda a conversa? Esta ação não pode ser desfeita.",
+      )
+    ) {
+      return;
+    }
+    const supabase = criarClientNavegador();
+    const { error } = await supabase
+      .from("chamados")
+      .delete()
+      .eq("id", selecionado.id);
+    if (error) {
+      setErro(error.message);
+      return;
+    }
+    voltar();
+  }
+
   async function mudarStatus(novoStatus: string) {
     if (!selecionado) return;
     const supabase = criarClientNavegador();
@@ -265,19 +286,28 @@ export default function PaginaChamados() {
         {/* Controles de status */}
         <div className="cartao chamado-controles">
           {souAdmin && modoAdmin ? (
-            <label className="campo" style={{ maxWidth: 260, margin: 0 }}>
-              <span>Status do chamado</span>
-              <select
-                value={selecionado.status}
-                onChange={(e) => mudarStatus(e.target.value)}
+            <div className="chamado-controles-admin">
+              <label className="campo" style={{ maxWidth: 260, margin: 0 }}>
+                <span>Status do chamado</span>
+                <select
+                  value={selecionado.status}
+                  onChange={(e) => mudarStatus(e.target.value)}
+                >
+                  {STATUS.map((s) => (
+                    <option key={s.valor} value={s.valor}>
+                      {s.rotulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="botao botao-perigo"
+                onClick={excluirChamado}
               >
-                {STATUS.map((s) => (
-                  <option key={s.valor} value={s.valor}>
-                    {s.rotulo}
-                  </option>
-                ))}
-              </select>
-            </label>
+                Excluir chamado
+              </button>
+            </div>
           ) : selecionado.status === "fechado" ? (
             <button
               type="button"
