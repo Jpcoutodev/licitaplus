@@ -63,7 +63,7 @@ export async function lerPerfisAtivos(
 ): Promise<PerfilColeta[]> {
   const { data, error } = await supabase
     .from("perfis")
-    .select("id, palavras_chave, ufs, modalidades")
+    .select("id, palavras_chave, ufs, modalidades, brasil_inteiro")
     .eq("ativo", true);
   if (error) throw new Error(`Falha ao ler perfis ativos: ${error.message}`);
   return data ?? [];
@@ -93,9 +93,12 @@ async function gravarLicitacoes(
   }
 }
 
-/** Na tabela de progresso, fatia "todas as modalidades" é modalidade 0. */
+/**
+ * Chave da fatia na tabela de progresso: modalidade 0 = "todas"; uf "BR" =
+ * consulta nacional (fatia sem UF).
+ */
 function chaveProgresso(fatia: Fatia): { uf: string; modalidade: number } {
-  return { uf: fatia.uf, modalidade: fatia.codigoModalidade ?? 0 };
+  return { uf: fatia.uf ?? "BR", modalidade: fatia.codigoModalidade ?? 0 };
 }
 
 async function lerPaginaInicial(
@@ -206,10 +209,25 @@ export async function coletarPorBuscaTextual(
     erros: [],
   };
 
-  // Pares únicos (termo, uf) de todos os perfis ativos.
-  const pares = new Map<string, { termo: string; uf: string }>();
+  // Termos buscados nacionalmente (perfis Brasil inteiro).
+  const termosNacionais = new Set<string>();
   for (const perfil of perfis) {
+    if (!perfil.brasil_inteiro) continue;
     for (const termo of expandirComSinonimos(perfil.palavras_chave)) {
+      termosNacionais.add(termo);
+    }
+  }
+
+  // Pares (termo, uf?) únicos. Um termo já buscado nacionalmente cobre todas
+  // as UFs — não repetimos a mesma busca por estado.
+  const pares = new Map<string, { termo: string; uf?: string }>();
+  for (const termo of termosNacionais) {
+    pares.set(`${termo}|BR`, { termo });
+  }
+  for (const perfil of perfis) {
+    if (perfil.brasil_inteiro) continue;
+    for (const termo of expandirComSinonimos(perfil.palavras_chave)) {
+      if (termosNacionais.has(termo)) continue;
       for (const uf of perfil.ufs) {
         const sigla = uf.trim().toUpperCase();
         if (sigla) pares.set(`${termo}|${sigla}`, { termo, uf: sigla });

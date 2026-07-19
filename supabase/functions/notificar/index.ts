@@ -20,6 +20,23 @@ import { enviarEmail } from "../_shared/notificacao/email.ts";
 /** Limites por execução: cabem no timeout da function; o resto fica para a próxima janela. */
 const MAX_MATCHES_POR_EXECUCAO = 30;
 const MAX_MATCHES_POR_EMAIL = 10;
+/** Teto de licitações notificadas por perfil por dia (protege caixa e custo de IA). */
+const MAX_LICITACOES_POR_DIA = 10;
+
+/** Início do dia de hoje em Brasília (UTC-3), como ISO em UTC. */
+function inicioDoDiaBrasilia(): string {
+  const agora = new Date();
+  const brasilia = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
+  // 00:00 em Brasília = 03:00 UTC do mesmo dia.
+  return new Date(Date.UTC(
+    brasilia.getUTCFullYear(),
+    brasilia.getUTCMonth(),
+    brasilia.getUTCDate(),
+    3,
+    0,
+    0,
+  )).toISOString();
+}
 
 interface MatchPendente {
   id: string;
@@ -39,6 +56,7 @@ Deno.serve(async (_req) => {
 
     const pendentes = await lerMatchesPendentes(supabase);
     const porPerfil = agruparPorPerfil(pendentes);
+    const inicioHoje = inicioDoDiaBrasilia();
 
     let emailsEnviados = 0;
     let matchesNotificados = 0;
@@ -46,6 +64,16 @@ Deno.serve(async (_req) => {
 
     for (const [perfilId, matches] of porPerfil) {
       try {
+        // Teto diário por perfil: não ultrapassa MAX_LICITACOES_POR_DIA
+        // notificações no dia (o excedente fica no painel e sai amanhã).
+        const { count: jaHoje } = await supabase
+          .from("matches")
+          .select("id", { count: "exact", head: true })
+          .eq("perfil_id", perfilId)
+          .gte("notificado_em", inicioHoje);
+        const restanteHoje = MAX_LICITACOES_POR_DIA - (jaHoje ?? 0);
+        if (restanteHoje <= 0) continue;
+
         const email = await buscarEmailDoUsuario(
           supabase,
           matches[0].perfis.user_id,
@@ -53,9 +81,10 @@ Deno.serve(async (_req) => {
 
         // Gera os resumos item a item; um resumo que falhar fica para a
         // próxima janela sem impedir os demais.
+        const limite = Math.min(MAX_MATCHES_POR_EMAIL, restanteHoje);
         const itens: ItemEmail[] = [];
         const idsIncluidos: string[] = [];
-        for (const match of matches.slice(0, MAX_MATCHES_POR_EMAIL)) {
+        for (const match of matches.slice(0, limite)) {
           try {
             const resumo = await gerarResumo(match.licitacoes);
             itens.push({ licitacao: match.licitacoes, resumo });

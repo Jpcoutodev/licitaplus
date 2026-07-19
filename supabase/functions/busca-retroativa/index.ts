@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     );
     const { data: perfil, error } = await supabaseUsuario
       .from("perfis")
-      .select("id, palavras_chave, ufs, modalidades")
+      .select("id, palavras_chave, ufs, modalidades, brasil_inteiro")
       .eq("id", perfil_id)
       .eq("ativo", true)
       .maybeSingle<PerfilColeta>();

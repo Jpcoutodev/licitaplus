@@ -115,13 +115,14 @@ interface ItemBuscaTextualPNCP {
  */
 export async function buscarPorTermoTextual(
   termo: string,
-  uf: string,
+  uf?: string,
 ): Promise<LicitacaoColetada[]> {
   const url = new URL(`${urlBasePncp().replace(/\/api\/consulta$/, "")}/api/search/`);
   url.searchParams.set("q", termo);
   url.searchParams.set("tipos_documento", "edital");
   url.searchParams.set("status", "recebendo_proposta");
-  url.searchParams.set("ufs", uf);
+  // Sem uf = busca nacional (Brasil inteiro).
+  if (uf) url.searchParams.set("ufs", uf);
   url.searchParams.set("ordenacao", "-data");
   url.searchParams.set("pagina", "1");
   url.searchParams.set("tam_pagina", String(TAMANHO_PAGINA_MAXIMO));

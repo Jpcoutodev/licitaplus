@@ -15,6 +15,7 @@ export default function PaginaPerfil() {
   const [palavras, setPalavras] = useState<string[]>([]);
   const [novaPalavra, setNovaPalavra] = useState("");
   const [ufs, setUfs] = useState<string[]>([]);
+  const [brasilInteiro, setBrasilInteiro] = useState(false);
   const [modalidades, setModalidades] = useState<number[]>([]);
   const [ativo, setAtivo] = useState(true);
 
@@ -28,7 +29,7 @@ export default function PaginaPerfil() {
       const supabase = criarClientNavegador();
       const { data } = await supabase
         .from("perfis")
-        .select("id, palavras_chave, ufs, modalidades, ativo")
+        .select("id, palavras_chave, ufs, modalidades, brasil_inteiro, ativo")
         .limit(1)
         .maybeSingle();
 
@@ -36,6 +37,7 @@ export default function PaginaPerfil() {
         setPerfilId(data.id);
         setPalavras(data.palavras_chave ?? []);
         setUfs(data.ufs ?? []);
+        setBrasilInteiro(data.brasil_inteiro ?? false);
         setModalidades(data.modalidades ?? []);
         setAtivo(data.ativo);
       }
@@ -67,9 +69,12 @@ export default function PaginaPerfil() {
     setSucesso(null);
 
     // Validação de TODA entrada do usuário antes de persistir.
+    // Brasil inteiro ignora a seleção de UFs (consulta nacional).
+    const ufsFinais = brasilInteiro ? [] : ufs;
     const validacao = esquemaPerfil().safeParse({
       palavras_chave: palavras,
-      ufs,
+      brasil_inteiro: brasilInteiro,
+      ufs: ufsFinais,
       modalidades,
       ativo,
     });
@@ -197,20 +202,50 @@ export default function PaginaPerfil() {
           </div>
 
           <div className="campo">
-            <label>Em quais estados sua empresa atua?</label>
-            <div className="opcoes">
-              {UFS.map((uf) => (
-                <label key={uf}>
-                  <input
-                    type="checkbox"
-                    checked={ufs.includes(uf)}
-                    onChange={() => setUfs(alternar(ufs, uf))}
-                  />
-                  {uf}
-                </label>
-              ))}
-            </div>
-            <p className="ajuda">Até {limites.maxUfs} UFs no plano gratuito.</p>
+            <label>Onde sua empresa quer buscar licitações?</label>
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                fontWeight: 600,
+                marginBottom: 10,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={brasilInteiro}
+                onChange={() => setBrasilInteiro(!brasilInteiro)}
+              />
+              🇧🇷 Brasil inteiro (todos os estados)
+            </label>
+
+            {!brasilInteiro && (
+              <>
+                <div className="opcoes">
+                  {UFS.map((uf) => (
+                    <label key={uf}>
+                      <input
+                        type="checkbox"
+                        checked={ufs.includes(uf)}
+                        onChange={() => setUfs(alternar(ufs, uf))}
+                      />
+                      {uf}
+                    </label>
+                  ))}
+                </div>
+                <p className="ajuda">
+                  Selecione os estados de interesse, ou marque Brasil inteiro
+                  acima para o país todo.
+                </p>
+              </>
+            )}
+            {brasilInteiro && (
+              <p className="ajuda">
+                Buscando em todos os estados. Para focar em regiões específicas,
+                desmarque Brasil inteiro e escolha as UFs.
+              </p>
+            )}
           </div>
 
           <div className="campo">

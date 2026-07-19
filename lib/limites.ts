@@ -11,8 +11,9 @@ export interface LimitesPlano {
 }
 
 export const PLANOS: Record<string, LimitesPlano> = {
-  gratuito: { maxPerfis: 1, maxPalavrasChave: 5, maxUfs: 3 },
-  // futuro: profissional: { maxPerfis: 5, maxPalavrasChave: 20, maxUfs: 27 },
+  // maxUfs = 27 cobre todos os estados; para o país todo, o perfil usa a
+  // opção "Brasil inteiro" (consulta nacional), não a seleção de UFs.
+  gratuito: { maxPerfis: 1, maxPalavrasChave: 5, maxUfs: 27 },
 };
 
 export function limitesDoUsuario(): LimitesPlano {

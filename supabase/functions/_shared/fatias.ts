@@ -9,43 +9,55 @@ export interface PerfilColeta {
   palavras_chave: string[];
   ufs: string[];
   modalidades: number[];
+  brasil_inteiro: boolean;
 }
 
 export interface Fatia {
-  uf: string;
-  /** undefined = todas as modalidades da UF. */
+  /** undefined = consulta nacional (Brasil inteiro). */
+  uf?: string;
+  /** undefined = todas as modalidades. */
   codigoModalidade?: number;
 }
 
+/** Chave "BR" representa a região nacional (perfil Brasil inteiro). */
+const NACIONAL = "BR";
+
 /**
- * Deriva o conjunto mínimo de fatias UF × modalidade a partir dos perfis
- * ativos. Se alguma UF tem perfil sem modalidade específica (lista vazia),
- * a fatia da UF é única e sem filtro de modalidade — cobre todos os casos
- * com uma só consulta.
+ * Deriva o conjunto mínimo de fatias a partir dos perfis ativos. Perfis
+ * "Brasil inteiro" viram fatias nacionais (sem UF); os demais, fatias por
+ * UF × modalidade. Se qualquer perfil de uma região não filtra modalidade,
+ * a região vira uma única fatia sem filtro de modalidade.
  */
 export function derivarFatias(perfis: PerfilColeta[]): Fatia[] {
-  const modalidadesPorUf = new Map<string, Set<number> | "todas">();
+  // Chave da região: "BR" para nacional, ou a sigla da UF.
+  const modalidadesPorRegiao = new Map<string, Set<number> | "todas">();
+
+  const registrar = (regiao: string, modalidades: number[]) => {
+    const atual = modalidadesPorRegiao.get(regiao);
+    if (atual === "todas") return;
+    if (modalidades.length === 0) {
+      modalidadesPorRegiao.set(regiao, "todas");
+    } else {
+      const conjunto = atual ?? new Set<number>();
+      for (const m of modalidades) conjunto.add(m);
+      modalidadesPorRegiao.set(regiao, conjunto);
+    }
+  };
 
   for (const perfil of perfis) {
-    for (const uf of perfil.ufs) {
-      const sigla = uf.trim().toUpperCase();
-      if (!sigla) continue;
-
-      const atual = modalidadesPorUf.get(sigla);
-      if (atual === "todas") continue;
-
-      if (perfil.modalidades.length === 0) {
-        modalidadesPorUf.set(sigla, "todas");
-      } else {
-        const conjunto = atual ?? new Set<number>();
-        for (const modalidade of perfil.modalidades) conjunto.add(modalidade);
-        modalidadesPorUf.set(sigla, conjunto);
+    if (perfil.brasil_inteiro) {
+      registrar(NACIONAL, perfil.modalidades);
+    } else {
+      for (const uf of perfil.ufs) {
+        const sigla = uf.trim().toUpperCase();
+        if (sigla) registrar(sigla, perfil.modalidades);
       }
     }
   }
 
   const fatias: Fatia[] = [];
-  for (const [uf, modalidades] of modalidadesPorUf) {
+  for (const [regiao, modalidades] of modalidadesPorRegiao) {
+    const uf = regiao === NACIONAL ? undefined : regiao;
     if (modalidades === "todas") {
       fatias.push({ uf });
     } else {
