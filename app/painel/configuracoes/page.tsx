@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { criarClientNavegador } from "@/lib/supabase/client";
+import { PushToggle } from "../push-toggle";
 
 export default function PaginaConfiguracoes() {
   const [email, setEmail] = useState<string>("");
@@ -118,6 +119,11 @@ export default function PaginaConfiguracoes() {
           </>
         )}
         {msgAlertas && <p className="mensagem-sucesso">{msgAlertas}</p>}
+      </div>
+
+      <div className="cartao">
+        <h3>Notificações no aparelho (push)</h3>
+        <PushToggle />
       </div>
 
       <div className="cartao">

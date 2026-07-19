@@ -16,6 +16,7 @@ import {
 } from "../_shared/notificacao/conteudo.ts";
 import { gerarResumo } from "../_shared/notificacao/resumo.ts";
 import { enviarEmail } from "../_shared/notificacao/email.ts";
+import { enviarPushUsuario } from "../_shared/notificacao/push.ts";
 
 /** Limites por execução: cabem no timeout da function; o resto fica para a próxima janela. */
 const MAX_MATCHES_POR_EXECUCAO = 30;
@@ -108,6 +109,20 @@ Deno.serve(async (_req) => {
           .in("id", idsIncluidos);
         if (error) throw new Error(`gravar notificado_em: ${error.message}`);
         matchesNotificados += idsIncluidos.length;
+
+        // Push (best-effort, complementa o email; não derruba o lote).
+        try {
+          const n = idsIncluidos.length;
+          await enviarPushUsuario(
+            supabase,
+            matches[0].perfis.user_id,
+            n === 1
+              ? "Nova licitação para o seu perfil"
+              : `${n} novas licitações para o seu perfil`,
+            itens[0].licitacao.objeto_compra.slice(0, 120),
+            "/painel",
+          );
+        } catch { /* push é complementar; ignora falha */ }
       } catch (erro) {
         erros.push({ perfil_id: perfilId, erro: mensagemDe(erro) });
       }
