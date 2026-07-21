@@ -4,7 +4,7 @@ import { POSTS } from "@/lib/blog/posts";
 import { CabecalhoBlog, RodapeBlog } from "./cabecalho";
 import { Rastreio } from "./rastreio";
 
-const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com.br";
+const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com";
 
 export const metadata: Metadata = {
   title: "Blog — guias sobre licitações para empresas",

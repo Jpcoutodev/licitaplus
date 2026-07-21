@@ -111,7 +111,7 @@ function IconeBeneficio({ children }: { children: React.ReactNode }) {
   );
 }
 
-const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com.br";
+const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com";
 
 const jsonLd = {
   "@context": "https://schema.org",

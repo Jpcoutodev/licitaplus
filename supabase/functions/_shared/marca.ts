@@ -5,7 +5,7 @@
 
 export const MARCA = {
   nome: "SentinelaGov",
-  dominio: "sentinelagov.com.br",
-  siteUrl: "https://sentinelagov.com.br",
-  emailContato: "contato@sentinelagov.com.br",
+  dominio: "sentinelagov.com",
+  siteUrl: "https://sentinelagov.com",
+  emailContato: "contato@sentinelagov.com",
 } as const;

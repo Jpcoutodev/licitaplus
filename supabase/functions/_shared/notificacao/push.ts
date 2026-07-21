@@ -13,7 +13,7 @@ function configurar(): boolean {
   if (configurado) return true;
   const publica = lerEnv("VAPID_PUBLIC_KEY");
   const privada = lerEnv("VAPID_PRIVATE_KEY");
-  const assunto = lerEnv("VAPID_SUBJECT") ?? "mailto:contato@sentinelagov.com.br";
+  const assunto = lerEnv("VAPID_SUBJECT") ?? "mailto:contato@sentinelagov.com";
   if (!publica || !privada) return false;
   webpush.setVapidDetails(assunto, publica, privada);
   configurado = true;
