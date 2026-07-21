@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://licitaplus.com";
+const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com.br";
 
 export default function robots(): MetadataRoute.Robots {
   return {

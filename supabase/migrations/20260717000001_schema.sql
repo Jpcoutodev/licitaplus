@@ -1,4 +1,4 @@
--- Licitaplus — Fase 1: schema inicial
+-- SentinelaGov — Fase 1: schema inicial
 -- Tabelas: perfis (dados do usuário), licitacoes (dado público compartilhado), matches (relação perfil x licitação).
 
 -- ---------------------------------------------------------------------------

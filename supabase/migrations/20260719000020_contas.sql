@@ -1,4 +1,4 @@
--- Licitaplus — dados de conta da empresa (onboarding pós-cadastro)
+-- SentinelaGov — dados de conta da empresa (onboarding pós-cadastro)
 --
 -- Guarda nome da empresa e telefone, coletados logo após o cadastro. Uma linha
 -- por usuário. Admin pode ler (para exibir junto aos chamados, por exemplo).

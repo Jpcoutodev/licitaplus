@@ -4,7 +4,7 @@ import { POSTS } from "@/lib/blog/posts";
 import { CabecalhoBlog, RodapeBlog } from "./cabecalho";
 import { Rastreio } from "./rastreio";
 
-const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://licitaplus.com";
+const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com.br";
 
 export const metadata: Metadata = {
   title: "Blog — guias sobre licitações para empresas",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: `${urlSite}/blog`,
-    title: "Blog do Licitaplus — guias sobre licitações para empresas",
+    title: "Blog do SentinelaGov — guias sobre licitações para empresas",
     description:
       "Como vender para o governo, participar de licitações e encontrar oportunidades. Conteúdo direto para PMEs.",
   },
@@ -35,7 +35,7 @@ export default function IndiceBlog() {
       <CabecalhoBlog />
       <main className="container blog-indice">
         <header className="blog-indice-topo">
-          <h1>Blog do Licitaplus</h1>
+          <h1>Blog do SentinelaGov</h1>
           <p className="texto-suave">
             Guias diretos para vender mais ao governo — sem juridiquês.
           </p>

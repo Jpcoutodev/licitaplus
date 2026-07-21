@@ -80,8 +80,8 @@ export function montarEmailMatches(itens: ItemEmail[]): {
   html: string;
 } {
   const assunto = itens.length === 1
-    ? "Licitaplus: 1 nova licitação para o seu perfil"
-    : `Licitaplus: ${itens.length} novas licitações para o seu perfil`;
+    ? "SentinelaGov: 1 nova licitação para o seu perfil"
+    : `SentinelaGov: ${itens.length} novas licitações para o seu perfil`;
 
   const blocos = itens.map(({ licitacao: l, resumo }) => {
     const titulo = escaparHtml(l.objeto_compra.slice(0, 140));
@@ -107,7 +107,7 @@ export function montarEmailMatches(itens: ItemEmail[]): {
       <h2>Novas licitações para o seu perfil</h2>
       <p>Encontramos oportunidades no PNCP compatíveis com as palavras-chave do seu perfil:</p>
       ${blocos.join("\n")}
-      <p style="color:#888;font-size:12px;">Você recebe este email porque tem um perfil ativo no Licitaplus.</p>
+      <p style="color:#888;font-size:12px;">Você recebe este email porque tem um perfil ativo no SentinelaGov.</p>
     </div>`;
 
   return { assunto, html };

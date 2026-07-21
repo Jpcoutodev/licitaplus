@@ -1,4 +1,4 @@
--- Licitaplus — Fase 3: função de matching palavra-chave x licitação
+-- SentinelaGov — Fase 3: função de matching palavra-chave x licitação
 --
 -- Recebe o perfil e a lista de termos já expandida com sinônimos (a expansão
 -- fica no código do worker). Monta uma tsquery OR de plainto_tsquery por

@@ -4,17 +4,17 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
-const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://licitaplus.com";
+const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com.br";
 
 export const metadata: Metadata = {
   metadataBase: new URL(urlSite),
   title: {
-    default: "Licitaplus — as licitações certas para a sua empresa, por email",
-    template: "%s · Licitaplus",
+    default: "SentinelaGov — as licitações certas para a sua empresa, por email",
+    template: "%s · SentinelaGov",
   },
   description:
-    "O Licitaplus encontra as licitações públicas compatíveis com o que a sua empresa vende, resume em linguagem simples e ajuda a decidir com IA. Teste grátis por 14 dias, sem cartão.",
-  applicationName: "Licitaplus",
+    "O SentinelaGov encontra as licitações públicas compatíveis com o que a sua empresa vende, resume em linguagem simples e ajuda a decidir com IA. Teste grátis por 14 dias, sem cartão.",
+  applicationName: "SentinelaGov",
   keywords: [
     "monitoramento de licitações",
     "alertas de licitações por email",
@@ -24,20 +24,20 @@ export const metadata: Metadata = {
     "como vender para o governo",
     "oportunidades de licitação",
   ],
-  authors: [{ name: "Licitaplus" }],
+  authors: [{ name: "SentinelaGov" }],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "pt_BR",
     url: urlSite,
-    siteName: "Licitaplus",
-    title: "Licitaplus — as licitações certas para a sua empresa, por email",
+    siteName: "SentinelaGov",
+    title: "SentinelaGov — as licitações certas para a sua empresa, por email",
     description:
       "Encontre oportunidades de vender para o governo sem esforço: alertas por email, resumo em linguagem simples e análise com IA. 14 dias grátis.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Licitaplus — licitações sob medida para a sua empresa",
+    title: "SentinelaGov — licitações sob medida para a sua empresa",
     description:
       "Alertas de licitações por email, resumo simples e análise com IA. Teste grátis por 14 dias.",
   },

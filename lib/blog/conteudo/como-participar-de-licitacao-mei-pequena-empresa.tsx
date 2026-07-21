@@ -21,7 +21,7 @@ const faq = [
   },
   {
     p: "Como sei quais licitações combinam com a minha empresa?",
-    r: "Definindo palavras-chave do que você vende e a sua região, e filtrando as oportunidades por elas. O Licitaplus faz esse cruzamento automaticamente e envia por email só as licitações compatíveis com o seu perfil.",
+    r: "Definindo palavras-chave do que você vende e a sua região, e filtrando as oportunidades por elas. O SentinelaGov faz esse cruzamento automaticamente e envia por email só as licitações compatíveis com o seu perfil.",
   },
 ];
 
@@ -100,7 +100,7 @@ function Corpo() {
         <strong>exigências de habilitação</strong> e as regras da proposta.
       </p>
       <p>
-        No Licitaplus, você não precisa caçar isso sozinho: anexe o edital e
+        No SentinelaGov, você não precisa caçar isso sozinho: anexe o edital e
         converse com a IA — ela lê o documento, aponta as exigências de
         habilitação, os prazos e ajuda a decidir se a licitação é viável para a
         sua empresa. É como ter uma primeira leitura técnica, na hora, sem custo
@@ -142,7 +142,7 @@ function Corpo() {
 
       <CtaTeste
         titulo="Sua empresa pode vender ao governo"
-        texto="O Licitaplus encontra as licitações certas e a IA ajuda a entender cada edital. Comece o teste grátis de 14 dias, sem cartão."
+        texto="O SentinelaGov encontra as licitações certas e a IA ajuda a entender cada edital. Comece o teste grátis de 14 dias, sem cartão."
         rotulo="Criar minha conta grátis"
       />
     </>

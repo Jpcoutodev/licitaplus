@@ -1,4 +1,4 @@
--- Licitaplus — cursor de paginação da coleta
+-- SentinelaGov — cursor de paginação da coleta
 --
 -- O PNCP pode ter milhares de registros por fatia (UF × modalidade) e responde
 -- lento; uma invocação da Edge Function não percorre tudo. Esta tabela guarda

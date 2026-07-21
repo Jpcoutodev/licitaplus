@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Licitaplus — as licitações certas para a sua empresa";
+export const alt = "SentinelaGov — as licitações certas para a sua empresa";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -24,7 +24,7 @@ export default function OpengraphImage() {
         }}
       >
         <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: -1 }}>
-          Licitaplus
+          SentinelaGov
         </div>
         <div
           style={{

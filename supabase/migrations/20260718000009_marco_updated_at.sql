@@ -1,4 +1,4 @@
--- Licitaplus — marco de notificação passa a ser a última alteração do perfil
+-- SentinelaGov — marco de notificação passa a ser a última alteração do perfil
 --
 -- Ao EDITAR o perfil (novas palavras-chave), a busca inicial refeita não deve
 -- disparar emails do acervo: só é "nova" a licitação publicada depois da

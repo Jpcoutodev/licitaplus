@@ -1,4 +1,4 @@
--- Licitaplus — notificar apenas licitações novas
+-- SentinelaGov — notificar apenas licitações novas
 --
 -- Regra de produto: no cadastro (ou edição) do perfil, o acervo de licitações
 -- já abertas entra no painel SEM disparar email; o alerta por email fica

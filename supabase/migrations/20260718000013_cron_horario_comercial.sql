@@ -1,4 +1,4 @@
--- Licitaplus — coleta/notificação a cada 2h, das 7h às 19h (Brasília)
+-- SentinelaGov — coleta/notificação a cada 2h, das 7h às 19h (Brasília)
 --
 -- Licitações têm prazo em dias/semanas e são publicadas em horário comercial;
 -- rodar de madrugada só desperdiça chamadas ao PNCP. O pg_cron agenda em UTC;
@@ -6,11 +6,11 @@
 -- Coleta nas horas pares do intervalo; notificação 15 min depois de cada uma.
 
 select cron.alter_job(
-  (select jobid from cron.job where jobname = 'licitaplus-coletar'),
+  (select jobid from cron.job where jobname = 'sentinelagov-coletar'),
   schedule := '0 10-22/2 * * *'
 );
 
 select cron.alter_job(
-  (select jobid from cron.job where jobname = 'licitaplus-notificar'),
+  (select jobid from cron.job where jobname = 'sentinelagov-notificar'),
   schedule := '15 10-22/2 * * *'
 );

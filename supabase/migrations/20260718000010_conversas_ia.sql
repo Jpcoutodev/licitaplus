@@ -1,4 +1,4 @@
--- Licitaplus — memória do chat de análise com IA
+-- SentinelaGov — memória do chat de análise com IA
 --
 -- Uma conversa por usuário × licitação (licitacao_id nulo = conversa geral,
 -- sem licitação selecionada). O documento PDF anexado fica na conversa, para

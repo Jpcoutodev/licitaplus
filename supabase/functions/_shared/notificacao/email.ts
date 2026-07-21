@@ -16,7 +16,7 @@ export async function enviarEmail(
   if (!chave) throw new Error("RESEND_API_KEY não configurada");
 
   const remetente = lerEnv("RESEND_FROM_EMAIL") ??
-    "Licitaplus <onboarding@resend.dev>";
+    "SentinelaGov <onboarding@resend.dev>";
 
   const resposta = await fetchWithRetry("https://api.resend.com/emails", {
     method: "POST",

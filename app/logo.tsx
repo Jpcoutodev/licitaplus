@@ -1,6 +1,7 @@
 /**
- * Marca do Licitaplus: quadrado azul com um "L" (eixo) e uma seta verde de
- * crescimento. SVG inline — nítido em qualquer tamanho, sem imagem externa.
+ * Marca do SentinelaGov: quadrado azul com um escudo branco (a sentinela que
+ * vigia) e uma seta verde de crescimento dentro (as vendas que sobem).
+ * SVG inline — nítido em qualquer tamanho, sem imagem externa.
  */
 export function MarcaLogo({ tamanho = 32 }: { tamanho?: number }) {
   return (
@@ -13,35 +14,35 @@ export function MarcaLogo({ tamanho = 32 }: { tamanho?: number }) {
       aria-hidden
     >
       <defs>
-        <linearGradient id="lp-azul" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="sg-azul" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#3b82f6" />
           <stop offset="1" stopColor="#1d4ed8" />
         </linearGradient>
-        <linearGradient id="lp-verde" x1="0" y1="1" x2="1" y2="0">
+        <linearGradient id="sg-verde" x1="0" y1="1" x2="1" y2="0">
           <stop offset="0" stopColor="#16a34a" />
           <stop offset="1" stopColor="#4ade80" />
         </linearGradient>
       </defs>
-      <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#lp-azul)" />
-      {/* eixo em L */}
+
+      <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#sg-azul)" />
+
+      {/* escudo da sentinela — sólido, para ler bem até em 16px */}
       <path
-        d="M13 10 V27 a2 2 0 0 0 2 2 H24"
-        stroke="#ffffff"
-        strokeWidth="3.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M20 8.5 L30.5 12 V20.2 C30.5 25.8 26 30.2 20 32 C14 30.2 9.5 25.8 9.5 20.2 V12 Z"
+        fill="#ffffff"
       />
-      {/* seta de crescimento */}
+
+      {/* seta de crescimento, dentro do escudo */}
       <path
-        d="M17 26 L31 14"
-        stroke="url(#lp-verde)"
-        strokeWidth="3.2"
+        d="M15.5 23.5 L24 16"
+        stroke="url(#sg-verde)"
+        strokeWidth="2.8"
         strokeLinecap="round"
       />
       <path
-        d="M24.5 14 H31 V20.5"
-        stroke="url(#lp-verde)"
-        strokeWidth="3.2"
+        d="M19.5 16 H24 V20.5"
+        stroke="url(#sg-verde)"
+        strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -61,7 +62,7 @@ export function Logo({
   return (
     <span className={`marca${claro ? " marca-clara" : ""}`}>
       <MarcaLogo tamanho={tamanho} />
-      <span className="marca-nome">Licitaplus</span>
+      <span className="marca-nome">SentinelaGov</span>
     </span>
   );
 }

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     icon: "/icone-192.png",
     apple: "/icone-192.png",
   },
-  appleWebApp: { capable: true, title: "Licitaplus", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "SentinelaGov", statusBarStyle: "default" },
 };
 
 export default async function LayoutPainel({
@@ -54,7 +54,7 @@ export default async function LayoutPainel({
   return (
     <div className="layout-app">
       <aside className="sidebar">
-        <Link href="/painel" className="sidebar-logo" title="Licitaplus">
+        <Link href="/painel" className="sidebar-logo" title="SentinelaGov">
           <span className="logo-completo">
             <Logo claro tamanho={30} />
           </span>
@@ -87,7 +87,7 @@ export default async function LayoutPainel({
       <div className="conteudo">
         {/* Topo compacto só no celular */}
         <header className="topo-mobile">
-          <Link href="/painel" aria-label="Licitaplus">
+          <Link href="/painel" aria-label="SentinelaGov">
             <Logo tamanho={28} />
           </Link>
           {nomeEmpresa && <span className="topo-empresa">{nomeEmpresa}</span>}

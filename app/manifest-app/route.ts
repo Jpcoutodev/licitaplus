@@ -7,8 +7,8 @@
 export function GET() {
   const manifest = {
     id: "/painel",
-    name: "Licitaplus",
-    short_name: "Licitaplus",
+    name: "SentinelaGov",
+    short_name: "SentinelaGov",
     description:
       "As licitações certas para a sua empresa, com alertas e análise por IA.",
     start_url: "/painel",

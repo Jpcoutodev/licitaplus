@@ -1,4 +1,4 @@
--- Licitaplus — Fase 3: agendamento da coleta via pg_cron + pg_net
+-- SentinelaGov — Fase 3: agendamento da coleta via pg_cron + pg_net
 --
 -- O job lê a URL do projeto e a service role key do Vault do Supabase
 -- (nenhum segredo fica na migration). Antes do primeiro disparo, criar os
@@ -10,7 +10,7 @@ create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
 select cron.schedule(
-  'licitaplus-coletar',
+  'sentinelagov-coletar',
   '*/30 * * * *',  -- a cada 30 minutos
   $$
   select net.http_post(

@@ -1,4 +1,4 @@
--- Licitaplus — RAG do documento anexado (recuperação lexical)
+-- SentinelaGov — RAG do documento anexado (recuperação lexical)
 --
 -- Documentos grandes não cabem no contexto da IA. O texto extraído passa a
 -- morar só no servidor: o começo do documento fica em coluna própria

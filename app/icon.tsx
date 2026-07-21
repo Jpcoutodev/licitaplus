@@ -4,7 +4,7 @@ export const runtime = "edge";
 export const size = { width: 32, height: 32 };
 export const contentType = "image/png";
 
-// Favicon "L+" na cor primária do produto.
+// Favicon "S" na cor primária do produto (em 32px a letra lê melhor que o escudo).
 export default function Icon() {
   return new ImageResponse(
     (
@@ -17,13 +17,13 @@ export default function Icon() {
           justifyContent: "center",
           background: "#2563eb",
           color: "#ffffff",
-          fontSize: 20,
+          fontSize: 22,
           fontWeight: 800,
           fontFamily: "sans-serif",
           borderRadius: 7,
         }}
       >
-        L+
+        S
       </div>
     ),
     { ...size },

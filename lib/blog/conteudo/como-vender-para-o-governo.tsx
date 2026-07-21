@@ -122,7 +122,7 @@ function Corpo() {
         aviso quando surge algo do seu ramo.
       </p>
       <p>
-        É exatamente esse trabalho que o <strong>Licitaplus</strong> automatiza.
+        É exatamente esse trabalho que o <strong>SentinelaGov</strong> automatiza.
         Você descreve uma vez o que vende e onde atua, e passa a receber por
         email as licitações compatíveis com o seu perfil, já com um resumo em
         linguagem simples — objeto, valor e prazo. E pode conversar com uma IA
@@ -180,7 +180,7 @@ function Corpo() {
 
       <CtaTeste
         titulo="Comece a vender para o governo sem perder tempo"
-        texto="O Licitaplus encontra as licitações certas para a sua empresa e avisa por email. Teste grátis por 14 dias, sem cartão."
+        texto="O SentinelaGov encontra as licitações certas para a sua empresa e avisa por email. Teste grátis por 14 dias, sem cartão."
         rotulo="Criar minha conta grátis"
       />
     </>

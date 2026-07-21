@@ -363,7 +363,7 @@ export default function PaginaChamados() {
               className={`balao ${ehMinhaMensagem(m) ? "balao-meu" : "balao-outro"} ${m.autor_admin ? "balao-suporte" : ""}`}
             >
               <div className="balao-autor">
-                {m.autor_admin ? "Suporte Licitaplus" : "Você"}
+                {m.autor_admin ? "Suporte SentinelaGov" : "Você"}
                 <span className="balao-hora">{formatarData(m.created_at)}</span>
               </div>
               <div className="balao-texto">{m.conteudo}</div>

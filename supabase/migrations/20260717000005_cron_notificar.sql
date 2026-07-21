@@ -1,9 +1,9 @@
--- Licitaplus — Fase 4: agendamento da notificação por email
+-- SentinelaGov — Fase 4: agendamento da notificação por email
 -- Roda com 15 minutos de offset em relação à coleta (que roda em :00 e :30),
 -- usando os mesmos segredos do Vault (project_url, service_role_key).
 
 select cron.schedule(
-  'licitaplus-notificar',
+  'sentinelagov-notificar',
   '15,45 * * * *',
   $$
   select net.http_post(

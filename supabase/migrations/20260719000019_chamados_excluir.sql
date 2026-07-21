@@ -1,4 +1,4 @@
--- Licitaplus — admin pode excluir chamados
+-- SentinelaGov — admin pode excluir chamados
 --
 -- Só administradores excluem. As mensagens do chamado saem por cascata (FK
 -- on delete cascade), que roda como dona da tabela e não passa pela RLS.

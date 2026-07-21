@@ -1,4 +1,4 @@
-/* Service worker do Licitaplus: habilita o PWA e recebe web push. */
+/* Service worker do SentinelaGov: habilita o PWA e recebe web push. */
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -20,13 +20,13 @@ self.addEventListener("push", (evento) => {
     dados = { corpo: evento.data ? evento.data.text() : "" };
   }
 
-  const titulo = dados.titulo || "Licitaplus";
+  const titulo = dados.titulo || "SentinelaGov";
   const opcoes = {
-    body: dados.corpo || "Você tem novidades no Licitaplus.",
+    body: dados.corpo || "Você tem novidades no SentinelaGov.",
     icon: "/icone-192",
     badge: "/icone-192",
     data: { url: dados.url || "/painel" },
-    tag: dados.tag || "licitaplus",
+    tag: dados.tag || "sentinelagov",
   };
 
   evento.waitUntil(self.registration.showNotification(titulo, opcoes));

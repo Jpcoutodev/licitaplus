@@ -1,4 +1,4 @@
--- Licitaplus — perfil com opção "Brasil inteiro"
+-- SentinelaGov — perfil com opção "Brasil inteiro"
 --
 -- brasil_inteiro = true: monitora o país todo (o PNCP aceita consulta
 -- nacional, mais eficiente que 27 consultas por estado). false: usa as UFs

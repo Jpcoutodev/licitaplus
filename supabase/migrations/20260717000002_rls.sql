@@ -1,4 +1,4 @@
--- Licitaplus — Fase 1: Row Level Security
+-- SentinelaGov — Fase 1: Row Level Security
 -- Princípio do menor privilégio:
 --   perfis    → usuário só lê/escreve os próprios registros;
 --   matches   → usuário só lê matches dos próprios perfis; escrita apenas via

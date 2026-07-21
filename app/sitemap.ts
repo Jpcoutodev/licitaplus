@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { POSTS } from "@/lib/blog/posts";
 
-const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://licitaplus.com";
+const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com.br";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const agora = new Date();

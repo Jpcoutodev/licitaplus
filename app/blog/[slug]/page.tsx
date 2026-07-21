@@ -5,7 +5,7 @@ import { ARTIGOS, obterArtigo, POSTS } from "@/lib/blog/posts";
 import { CabecalhoBlog, RodapeBlog } from "../cabecalho";
 import { Rastreio } from "../rastreio";
 
-const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://licitaplus.com";
+const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com.br";
 
 export function generateStaticParams() {
   return ARTIGOS.map((a) => ({ slug: a.meta.slug }));
@@ -71,8 +71,8 @@ export default async function PaginaArtigo(
         description: meta.descricao,
         datePublished: meta.publicadoEm,
         dateModified: meta.atualizadoEm,
-        author: { "@type": "Organization", name: "Licitaplus" },
-        publisher: { "@type": "Organization", name: "Licitaplus" },
+        author: { "@type": "Organization", name: "SentinelaGov" },
+        publisher: { "@type": "Organization", name: "SentinelaGov" },
         mainEntityOfPage: url,
         inLanguage: "pt-BR",
       },

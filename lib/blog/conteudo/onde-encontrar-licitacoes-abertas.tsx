@@ -18,11 +18,11 @@ const faq = [
   },
   {
     p: "Como recebo aviso quando sair uma licitação do meu ramo?",
-    r: "Os portais oficiais não enviam alertas por palavra-chave. Para ser avisado automaticamente, use um serviço de monitoramento como o Licitaplus, que cruza as novas licitações com o seu perfil e manda um email quando aparece algo compatível.",
+    r: "Os portais oficiais não enviam alertas por palavra-chave. Para ser avisado automaticamente, use um serviço de monitoramento como o SentinelaGov, que cruza as novas licitações com o seu perfil e manda um email quando aparece algo compatível.",
   },
   {
     p: "Preciso pagar para acompanhar licitações?",
-    r: "Consultar os portais oficiais é gratuito. O que costuma ser pago é a conveniência: ferramentas que filtram, alertam e resumem as oportunidades para você não precisar garimpar vários sites todos os dias. O Licitaplus oferece isso com teste grátis de 14 dias.",
+    r: "Consultar os portais oficiais é gratuito. O que costuma ser pago é a conveniência: ferramentas que filtram, alertam e resumem as oportunidades para você não precisar garimpar vários sites todos os dias. O SentinelaGov oferece isso com teste grátis de 14 dias.",
   },
   {
     p: "Empresa pequena ou MEI pode participar de licitações?",
@@ -124,7 +124,7 @@ function Corpo() {
       <h2>Como não perder nenhuma licitação do seu ramo</h2>
       <p>
         A solução é inverter a lógica: em vez de você procurar, as oportunidades
-        certas chegam até você. É exatamente o que o Licitaplus faz — você
+        certas chegam até você. É exatamente o que o SentinelaGov faz — você
         descreve uma vez o que a sua empresa vende e onde atua, e o sistema
         monitora as fontes oficiais várias vezes ao dia, cruza cada nova
         licitação com o seu perfil e envia um email quando aparece algo
@@ -143,7 +143,7 @@ function Corpo() {
       <h2>Passo a passo para começar a receber alertas</h2>
       <ol>
         <li>
-          <strong>Crie sua conta</strong> no Licitaplus (teste grátis por 14
+          <strong>Crie sua conta</strong> no SentinelaGov (teste grátis por 14
           dias, sem cartão).
         </li>
         <li>
@@ -170,7 +170,7 @@ function Corpo() {
 
       <CtaTeste
         titulo="Pare de garimpar portais"
-        texto="Deixe o Licitaplus vigiar as licitações por você e receba só o que combina com o seu negócio. 14 dias grátis."
+        texto="Deixe o SentinelaGov vigiar as licitações por você e receba só o que combina com o seu negócio. 14 dias grátis."
         rotulo="Criar minha conta grátis"
       />
     </>

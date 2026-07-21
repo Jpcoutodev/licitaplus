@@ -29,7 +29,7 @@ export function Destaque({
 
 /** CTA de conversão inline — link estático marcado para o rastreio de conversão. */
 export function CtaTeste({
-  titulo = "Deixe a busca com o Licitaplus",
+  titulo = "Deixe a busca com o SentinelaGov",
   texto = "Receba por email as licitações compatíveis com a sua empresa, com resumo em linguagem simples e análise com IA. Teste grátis por 14 dias, sem cartão.",
   rotulo = "Começar teste grátis",
 }: {

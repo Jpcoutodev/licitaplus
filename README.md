@@ -1,4 +1,4 @@
-# Licitaplus
+# SentinelaGov
 
 Monitor de licitações do PNCP (Portal Nacional de Contratações Públicas) para PMEs.
 O sistema lê os perfis cadastrados (palavras-chave, UFs, modalidades), coleta apenas
@@ -84,7 +84,7 @@ Segredos das integrações (Fase 4) — nunca commitados, só em secrets do Supa
 ```powershell
 npx supabase secrets set MINIMAX_API_KEY=sua_chave_minimax
 npx supabase secrets set RESEND_API_KEY=sua_chave_resend
-npx supabase secrets set RESEND_FROM_EMAIL="Licitaplus <alertas@seudominio.com.br>"
+npx supabase secrets set RESEND_FROM_EMAIL="SentinelaGov <alertas@seudominio.com.br>"
 ```
 
 Opcionais (têm padrão): `MINIMAX_MODEL` (MiniMax-M2) e `MINIMAX_API_BASE_URL`
@@ -98,7 +98,7 @@ select vault.create_secret('https://SEU_PROJECT_REF.supabase.co', 'project_url')
 select vault.create_secret('SUA_SERVICE_ROLE_KEY', 'service_role_key');
 ```
 
-O job `licitaplus-coletar` (criado pela migration `0004`) roda a cada 30
+O job `sentinelagov-coletar` (criado pela migration `0004`) roda a cada 30
 minutos: lê os perfis ativos, deriva o conjunto mínimo de consultas
 (UF × modalidade), coleta do PNCP e grava os matches. Para testar manualmente:
 

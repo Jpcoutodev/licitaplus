@@ -1,4 +1,4 @@
--- Licitaplus — painel de métricas restrito a administradores
+-- SentinelaGov — painel de métricas restrito a administradores
 --
 -- As métricas de página (marketing) não são dados de usuário, mas também não
 -- devem ficar visíveis a clientes. Uma tabela `admins` define quem pode ver,

@@ -63,7 +63,7 @@ export function InstalarApp() {
   return (
     <div className="banner-instalar">
       <div className="banner-instalar-texto">
-        <strong>Instale o app do Licitaplus</strong>
+        <strong>Instale o app do SentinelaGov</strong>
         <span className="texto-suave">
           {ehIOS
             ? "Toque em Compartilhar e depois em “Adicionar à Tela de Início”."

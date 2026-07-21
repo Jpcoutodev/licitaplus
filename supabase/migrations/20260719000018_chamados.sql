@@ -1,4 +1,4 @@
--- Licitaplus — chamados de suporte (erro, sugestão, reclamação, dúvida)
+-- SentinelaGov — chamados de suporte (erro, sugestão, reclamação, dúvida)
 --
 -- Cada usuário abre chamados e conversa por mensagens; vê status e respostas.
 -- O admin (tabela `admins`) enxerga e administra todos os chamados. A autoria

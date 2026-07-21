@@ -1,4 +1,4 @@
--- Licitaplus — sumário do documento anexado
+-- SentinelaGov — sumário do documento anexado
 --
 -- Um índice de títulos/seções detectados no documento, calculado no anexo e
 -- sempre enviado à IA. Dá visão de ESTRUTURA (ex.: "o Anexo I está no corpo

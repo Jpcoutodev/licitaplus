@@ -1,4 +1,4 @@
--- Licitaplus — monitoramento de páginas (blog e marketing)
+-- SentinelaGov — monitoramento de páginas (blog e marketing)
 --
 -- Mede visualizações e conversões (clique no CTA de teste) por caminho.
 -- O blog é público e sem login, então o registro vem do visitante anônimo:

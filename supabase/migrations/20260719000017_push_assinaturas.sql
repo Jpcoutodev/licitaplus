@@ -1,4 +1,4 @@
--- Licitaplus — assinaturas de push (Web Push nativo, sem terceiros)
+-- SentinelaGov — assinaturas de push (Web Push nativo, sem terceiros)
 --
 -- Cada aparelho que ativa o push gera uma assinatura (endpoint + chaves).
 -- O envio (função notificar, service role) lê as assinaturas do usuário.

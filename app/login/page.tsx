@@ -61,7 +61,7 @@ export default function PaginaLogin() {
   return (
     <div style={{ maxWidth: 420, margin: "56px auto", padding: "0 20px" }}>
       <p style={{ textAlign: "center", marginBottom: 20, display: "flex", justifyContent: "center" }}>
-        <Link href="/" aria-label="Licitaplus">
+        <Link href="/" aria-label="SentinelaGov">
           <Logo />
         </Link>
       </p>

@@ -1,4 +1,4 @@
--- Licitaplus — favoritos: licitações marcadas pelo usuário
+-- SentinelaGov — favoritos: licitações marcadas pelo usuário
 -- (usadas também como contexto do chat de análise com IA)
 
 create table public.favoritos (

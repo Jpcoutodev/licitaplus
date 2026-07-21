@@ -3,12 +3,12 @@ import { Logo } from "./logo";
 
 const FAQ = [
   {
-    p: "O que é o Licitaplus?",
+    p: "O que é o SentinelaGov?",
     r: "É um serviço que encontra automaticamente as licitações públicas compatíveis com o que a sua empresa vende, resume cada uma em linguagem simples e ainda ajuda você a decidir com inteligência artificial. Tudo chega no seu email — você não precisa ficar procurando em portal nenhum.",
   },
   {
     p: "Preciso entender de licitações para usar?",
-    r: "Não. O Licitaplus foi feito para donos de pequenas e médias empresas que não são especialistas. Cada oportunidade vem com um resumo claro — o que estão comprando, valor, prazo — e você pode conversar com a IA para tirar dúvidas sobre o edital.",
+    r: "Não. O SentinelaGov foi feito para donos de pequenas e médias empresas que não são especialistas. Cada oportunidade vem com um resumo claro — o que estão comprando, valor, prazo — e você pode conversar com a IA para tirar dúvidas sobre o edital.",
   },
   {
     p: "Como funciona o teste grátis?",
@@ -16,7 +16,7 @@ const FAQ = [
   },
   {
     p: "Serve para empresa pequena ou MEI?",
-    r: "Sim. A maior parte das compras públicas é de bens e serviços comuns, em que pequenas empresas competem muito bem. O Licitaplus ajuda você a não perder essas oportunidades por falta de tempo para garimpar.",
+    r: "Sim. A maior parte das compras públicas é de bens e serviços comuns, em que pequenas empresas competem muito bem. O SentinelaGov ajuda você a não perder essas oportunidades por falta de tempo para garimpar.",
   },
   {
     p: "Consigo acompanhar o Brasil inteiro?",
@@ -24,7 +24,7 @@ const FAQ = [
   },
   {
     p: "De onde vêm as licitações?",
-    r: "Das fontes oficiais de contratações públicas do governo brasileiro. O Licitaplus consulta esses dados várias vezes ao dia para você e entrega só o que interessa ao seu negócio.",
+    r: "Das fontes oficiais de contratações públicas do governo brasileiro. O SentinelaGov consulta esses dados várias vezes ao dia para você e entrega só o que interessa ao seu negócio.",
   },
 ];
 
@@ -111,21 +111,21 @@ function IconeBeneficio({ children }: { children: React.ReactNode }) {
   );
 }
 
-const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://licitaplus.com";
+const urlSite = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sentinelagov.com.br";
 
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "Organization",
-      name: "Licitaplus",
+      name: "SentinelaGov",
       url: urlSite,
       description:
         "Monitoramento de licitações públicas para pequenas e médias empresas, com alertas por email e análise com IA.",
     },
     {
       "@type": "SoftwareApplication",
-      name: "Licitaplus",
+      name: "SentinelaGov",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       offers: {
@@ -156,7 +156,7 @@ export default function PaginaInicial() {
 
       <header className="lp-topo">
         <div className="container lp-topo-linha">
-          <Link href="/" aria-label="Licitaplus">
+          <Link href="/" aria-label="SentinelaGov">
             <Logo />
           </Link>
           <nav className="lp-nav">
@@ -182,7 +182,7 @@ export default function PaginaInicial() {
               </h1>
               <p className="lp-subtitulo">
                 Pare de perder oportunidades de vender para o governo. O
-                Licitaplus encontra as licitações que combinam com o seu
+                SentinelaGov encontra as licitações que combinam com o seu
                 negócio, resume em linguagem simples e ajuda você a decidir com
                 inteligência artificial.
               </p>
@@ -313,7 +313,7 @@ export default function PaginaInicial() {
       <footer className="lp-rodape">
         <div className="container lp-rodape-linha">
           <div>
-            <Link href="/" aria-label="Licitaplus">
+            <Link href="/" aria-label="SentinelaGov">
               <Logo />
             </Link>
             <p className="texto-suave" style={{ marginTop: 6 }}>
@@ -327,7 +327,7 @@ export default function PaginaInicial() {
           </nav>
         </div>
         <div className="container lp-rodape-copy texto-suave">
-          © {new Date().getFullYear()} Licitaplus
+          © {new Date().getFullYear()} SentinelaGov
         </div>
       </footer>
     </>

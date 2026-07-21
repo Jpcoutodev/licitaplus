@@ -6,7 +6,7 @@ export function CabecalhoBlog() {
   return (
     <header className="lp-topo">
       <div className="container lp-topo-linha">
-        <Link href="/" aria-label="Licitaplus">
+        <Link href="/" aria-label="SentinelaGov">
           <Logo />
         </Link>
         <nav className="lp-nav">
@@ -26,7 +26,7 @@ export function RodapeBlog() {
     <footer className="lp-rodape">
       <div className="container lp-rodape-linha">
         <div>
-          <Link href="/" aria-label="Licitaplus">
+          <Link href="/" aria-label="SentinelaGov">
             <Logo />
           </Link>
           <p className="texto-suave" style={{ marginTop: 6 }}>
@@ -40,7 +40,7 @@ export function RodapeBlog() {
         </nav>
       </div>
       <div className="container lp-rodape-copy texto-suave">
-        © {new Date().getFullYear()} Licitaplus
+        © {new Date().getFullYear()} SentinelaGov
       </div>
     </footer>
   );
