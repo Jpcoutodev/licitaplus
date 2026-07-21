@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Áreas autenticadas não devem ser indexadas.
-      disallow: ["/painel", "/auth"],
+      disallow: ["/painel", "/onboarding", "/auth"],
     },
     sitemap: `${urlSite}/sitemap.xml`,
   };
