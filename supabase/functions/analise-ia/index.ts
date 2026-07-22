@@ -59,6 +59,16 @@ type ClienteSupabase = ReturnType<typeof createClient>;
 interface TextoDeArquivo {
   texto: string;
   paginas: number;
+  /** Preenchido quando a origem é um pacote .zip: os arquivos lidos de dentro. */
+  arquivos?: string[];
+}
+
+/** Se veio de um pacote com vários arquivos, deixa isso claro no rótulo. */
+function nomeComPacote(base: string, arquivos?: string[]): string {
+  if (arquivos && arquivos.length > 1) {
+    return `${base} — pacote com ${arquivos.length} arquivos`;
+  }
+  return base;
 }
 
 /** Teto de caracteres combinados ao ler um pacote .zip de anexos. */
@@ -81,6 +91,7 @@ async function extrairTextoDeArchiveZip(
     .sort((a, b) => a.localeCompare(b, "pt"));
 
   const partes: string[] = [];
+  const lidosNomes: string[] = [];
   const ignorados: string[] = [];
   let paginas = 0;
   let lidos = 0;
@@ -118,6 +129,7 @@ async function extrairTextoDeArchiveZip(
       }
       const bloco = `\n\n===== ${nomeCurto} =====\n\n${texto}`;
       partes.push(bloco);
+      lidosNomes.push(nomeCurto);
       total += bloco.length;
       lidos++;
     } catch {
@@ -136,7 +148,7 @@ async function extrairTextoDeArchiveZip(
     combinado +=
       `\n\n[Arquivos do pacote não lidos automaticamente: ${ignorados.slice(0, 25).join(", ")}]`;
   }
-  return { texto: combinado, paginas };
+  return { texto: combinado, paginas, arquivos: lidosNomes };
 }
 
 /**
@@ -400,8 +412,10 @@ async function modoAnalisarArquivo(
 
   try {
     const extraido = await extrairTextoDeArquivo(bytes);
-    const nome = arquivo.titulo ??
-      `documento-${arquivo.sequencialDocumento}`;
+    const nome = nomeComPacote(
+      arquivo.titulo ?? `documento-${arquivo.sequencialDocumento}`,
+      extraido.arquivos,
+    );
     const resumo = await gravarDocumentoNaConversa(
       supabase,
       conversaId,
@@ -441,7 +455,7 @@ async function modoPdfAnexado(
     const resumo = await gravarDocumentoNaConversa(
       supabase,
       conversaId,
-      nome,
+      nomeComPacote(nome, extraido.arquivos),
       extraido.texto,
       extraido.paginas,
     );
