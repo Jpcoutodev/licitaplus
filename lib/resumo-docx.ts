@@ -157,8 +157,20 @@ function documentoXml(blocos: Bloco[]): string {
             depois: 80,
           });
         case "li": {
-          const prefixo = b.texto.startsWith("✅") ? "" : "• ";
-          return paraXml(runsXml(prefixo + b.texto, { sz: 22 }), {
+          // Linha de "ponto de atenção" (✅): troca o emoji colorido — que o
+          // LibreOffice/Word antigo renderizam em preto — por um ✔ de texto
+          // colorido de verde via formatação (verde em qualquer editor).
+          if (b.texto.startsWith("✅")) {
+            const resto = b.texto.replace(/^✅️?\s*/, "");
+            const check =
+              `<w:r><w:rPr><w:b/><w:color w:val="16A34A"/><w:sz w:val="22"/></w:rPr>` +
+              `<w:t xml:space="preserve">✔︎ </w:t></w:r>`;
+            return paraXml(check + runsXml(resto, { sz: 22 }), {
+              indent: 360,
+              depois: 60,
+            });
+          }
+          return paraXml(runsXml("• " + b.texto, { sz: 22 }), {
             indent: 360,
             depois: 60,
           });
