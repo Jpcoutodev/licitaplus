@@ -31,6 +31,7 @@ import {
 import type { LicitacaoColetada } from "../_shared/pncp/tipos.ts";
 import { extrairTextoPdfBytes } from "../_shared/pdf.ts";
 import { extrairTextoDocx, pareceZip } from "../_shared/docx.ts";
+import { unzipSync } from "npm:fflate@0.8.2";
 import { dividirEmTrechos, extrairSumario } from "../_shared/trechos.ts";
 import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
 
@@ -60,10 +61,88 @@ interface TextoDeArquivo {
   paginas: number;
 }
 
+/** Teto de caracteres combinados ao ler um pacote .zip de anexos. */
+const MAX_TEXTO_ZIP = 3_000_000;
+/** Teto de arquivos lidos de dentro do zip (evita pacotes patológicos). */
+const MAX_ARQUIVOS_ZIP = 40;
+
 /**
- * Extrai texto de PDF ou DOCX a partir dos bytes, detectando o formato pela
- * assinatura. Lança Error com mensagem amigável nos casos não suportados
- * (PDF escaneado sem texto, .doc antigo, .xlsx, formato desconhecido).
+ * Extrai texto de um pacote .zip de anexos (comum no PNCP): descompacta e lê
+ * os PDFs e DOCX de dentro, concatenando com um cabeçalho por arquivo. Zips
+ * aninhados são lidos recursivamente. Lança se nada legível for encontrado.
+ */
+async function extrairTextoDeArchiveZip(
+  bytes: Uint8Array,
+  profundidade = 0,
+): Promise<TextoDeArquivo> {
+  const zip = unzipSync(bytes);
+  const nomes = Object.keys(zip)
+    .filter((n) => !n.endsWith("/") && !n.startsWith("__MACOSX/"))
+    .sort((a, b) => a.localeCompare(b, "pt"));
+
+  const partes: string[] = [];
+  const ignorados: string[] = [];
+  let paginas = 0;
+  let lidos = 0;
+  let total = 0;
+
+  for (const nome of nomes) {
+    if (lidos >= MAX_ARQUIVOS_ZIP || total >= MAX_TEXTO_ZIP) break;
+    const conteudo = zip[nome];
+    const minusculo = nome.toLowerCase();
+    const nomeCurto = nome.split("/").pop() || nome;
+
+    try {
+      let texto = "";
+      if (minusculo.endsWith(".pdf")) {
+        const ex = await extrairTextoPdfBytes(conteudo);
+        texto = ex.texto;
+        paginas += ex.paginas;
+      } else if (minusculo.endsWith(".docx")) {
+        texto = extrairTextoDocx(conteudo);
+      } else if (
+        minusculo.endsWith(".zip") && profundidade < 2 && pareceZip(conteudo)
+      ) {
+        const rec = await extrairTextoDeArchiveZip(conteudo, profundidade + 1);
+        texto = rec.texto;
+        paginas += rec.paginas;
+      } else {
+        ignorados.push(nomeCurto);
+        continue;
+      }
+
+      texto = texto.trim();
+      if (!texto) {
+        ignorados.push(nomeCurto);
+        continue;
+      }
+      const bloco = `\n\n===== ${nomeCurto} =====\n\n${texto}`;
+      partes.push(bloco);
+      total += bloco.length;
+      lidos++;
+    } catch {
+      ignorados.push(nomeCurto);
+    }
+  }
+
+  if (lidos === 0) {
+    throw new Error(
+      "o pacote compactado não tem PDF nem Word legível dentro (pode conter só planilhas, imagens ou .doc antigo) — use o botão Baixar para abrir os arquivos",
+    );
+  }
+
+  let combinado = partes.join("").slice(0, MAX_TEXTO_ZIP).trim();
+  if (ignorados.length > 0) {
+    combinado +=
+      `\n\n[Arquivos do pacote não lidos automaticamente: ${ignorados.slice(0, 25).join(", ")}]`;
+  }
+  return { texto: combinado, paginas };
+}
+
+/**
+ * Extrai texto de PDF, DOCX ou pacote .zip a partir dos bytes, detectando o
+ * formato pela assinatura. Lança Error com mensagem amigável nos casos não
+ * suportados (PDF escaneado sem texto, .doc antigo, .xlsx, formato desconhecido).
  */
 async function extrairTextoDeArquivo(
   bytes: Uint8Array,
@@ -82,18 +161,16 @@ async function extrairTextoDeArquivo(
   }
 
   if (pareceZip(bytes)) {
+    // Um .docx também começa com "PK": tenta como Word primeiro.
     try {
-      const texto = extrairTextoDocx(bytes);
-      if (!texto.trim()) throw new Error("vazio");
-      return { texto, paginas: 0 };
+      return { texto: extrairTextoDocx(bytes), paginas: 0 };
     } catch (erro) {
-      if (erro instanceof Error && erro.message === "nao_docx") {
-        throw new Error(
-          "este arquivo é uma planilha ou pacote compactado, não um documento de texto — use o botão Baixar",
-        );
+      if (!(erro instanceof Error && erro.message === "nao_docx")) {
+        throw new Error("não foi possível ler este arquivo Word");
       }
-      throw new Error("não foi possível ler este arquivo Word");
+      // Não é .docx → é um pacote .zip de anexos: lê os PDFs/DOCX de dentro.
     }
+    return await extrairTextoDeArchiveZip(bytes);
   }
 
   // .doc antigo (OLE): D0 CF 11 E0

@@ -282,8 +282,12 @@ function ChatAnalise() {
 
     setErro(null);
     const nomeMinusculo = arquivo.name.toLowerCase();
-    if (!nomeMinusculo.endsWith(".pdf") && !nomeMinusculo.endsWith(".docx")) {
-      setErro("Anexe um arquivo PDF ou Word (.docx).");
+    if (
+      !nomeMinusculo.endsWith(".pdf") &&
+      !nomeMinusculo.endsWith(".docx") &&
+      !nomeMinusculo.endsWith(".zip")
+    ) {
+      setErro("Anexe um arquivo PDF, Word (.docx) ou um pacote .zip.");
       return;
     }
     if (arquivo.size > MAX_BYTES_PDF) {
@@ -578,7 +582,7 @@ function ChatAnalise() {
           <input
             ref={seletorArquivo}
             type="file"
-            accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.zip,application/zip"
             style={{ display: "none" }}
             onChange={anexarPdf}
           />
@@ -606,7 +610,7 @@ function ChatAnalise() {
                 disabled={extraindo}
                 onClick={() => seletorArquivo.current?.click()}
               >
-                {extraindo ? "Lendo arquivo..." : "Anexar arquivo (PDF ou Word)"}
+                {extraindo ? "Lendo arquivo..." : "Anexar arquivo (PDF, Word ou .zip)"}
               </button>
             </p>
           )}
