@@ -413,6 +413,27 @@ function ChatAnalise() {
     }
   }
 
+  /** Baixa o resumo executivo (markdown) como um arquivo Word (.docx). */
+  async function baixarResumoDocx(markdown: string) {
+    try {
+      const { gerarDocxDoMarkdown } = await import("@/lib/resumo-docx");
+      const bytes = gerarDocxDoMarkdown(markdown);
+      const blob = new Blob([bytes as BlobPart], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `resumo-executivo-${new Date().toISOString().slice(0, 10)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErro("Não foi possível gerar o arquivo Word.");
+    }
+  }
+
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault();
     const pergunta = texto.trim();
@@ -636,16 +657,29 @@ function ChatAnalise() {
               }`}
             >
               {mensagem.role === "assistant" ? (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    a: (props) => (
-                      <a {...props} target="_blank" rel="noreferrer" />
-                    ),
-                  }}
-                >
-                  {mensagem.content}
-                </ReactMarkdown>
+                <>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: (props) => (
+                        <a {...props} target="_blank" rel="noreferrer" />
+                      ),
+                    }}
+                  >
+                    {mensagem.content}
+                  </ReactMarkdown>
+                  {/^\s*#\s*Resumo Executivo/i.test(mensagem.content) && (
+                    <p style={{ marginTop: 10 }}>
+                      <button
+                        type="button"
+                        className="botao botao-secundario botao-mini"
+                        onClick={() => baixarResumoDocx(mensagem.content)}
+                      >
+                        ⬇ Baixar em Word (.docx)
+                      </button>
+                    </p>
+                  )}
+                </>
               ) : (
                 mensagem.content
               )}
