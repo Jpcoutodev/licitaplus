@@ -34,6 +34,7 @@ export default async function PaginaPainel() {
              orgao_razao_social, municipio_nome, uf, modalidade_nome,
              link_sistema_origem )`,
         )
+        .eq("oculto", false)
         .order("created_at", { ascending: false })
         .limit(50),
       supabase.from("favoritos").select("id, licitacao_id"),
@@ -96,6 +97,7 @@ export default async function PaginaPainel() {
           favoritoId={favoritoPorLicitacao.get(match.licitacoes.id) ?? null}
           nova={match.notificado_em === null}
           mostrarAnalise
+          matchId={match.id}
         />
       ))}
     </>

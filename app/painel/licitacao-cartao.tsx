@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FavoritoBotao } from "./favorito-botao";
+import { OcultarBotao } from "./ocultar-botao";
 
 export interface LicitacaoCartaoDados {
   id: string;
@@ -45,11 +46,14 @@ export function LicitacaoCartao({
   favoritoId,
   nova = false,
   mostrarAnalise = false,
+  matchId = null,
 }: {
   licitacao: LicitacaoCartaoDados;
   favoritoId: string | null;
   nova?: boolean;
   mostrarAnalise?: boolean;
+  /** Quando presente, mostra a ação "Ocultar" (usa matches.oculto). */
+  matchId?: string | null;
 }) {
   const l = licitacao;
   const linkPncp = linkPaginaPncp(l.numero_controle_pncp);
@@ -94,6 +98,7 @@ export function LicitacaoCartao({
             Ver no sistema de origem ↗
           </a>
         )}
+        {matchId && <OcultarBotao matchId={matchId} />}
       </p>
     </div>
   );
