@@ -527,10 +527,109 @@ Bullets iniciados com ✅ destacando o que mais pesa na decisão de participar.
 disputa. Não dê veredito categórico de "participe/não participe" — aponte os
 fatores.`;
 
+/** Tamanho-alvo de cada parte no modo mapa-e-redução (documentos grandes). */
+const CHUNK_RESUMO = 120_000;
+/** Máximo de partes processadas (limita nº de chamadas à IA e o tempo). */
+const MAX_CHUNKS_RESUMO = 6;
+
+const INSTRUCOES_MAP =
+  `Você recebe UMA PARTE de um edital de licitação. Extraia, em NOTAS curtas
+(bullets), apenas os fatos presentes NESTA PARTE que interessam a um resumo
+executivo: objeto, modalidade e número, critério de julgamento, modo de disputa,
+data/hora da sessão, vigência, valores (estimado, garantias, parcelas), ME/EPP,
+escopo dos serviços, exigências técnicas e de habilitação, obrigações da
+contratada, garantia contratual, condições de pagamento, penalidades, SLA e
+prazos.
+
+REGRAS:
+- Use SOMENTE o que está escrito nesta parte. NUNCA invente ou deduza.
+- Não escreva um resumo em prosa; escreva notas objetivas com o dado e o valor.
+- Se esta parte não tiver nada relevante, responda apenas: "Sem informações
+  relevantes nesta parte."`;
+
+/** Quebra o texto em blocos ~tamanho, preferindo cortar em quebra de linha. */
+function dividirEmBlocos(texto: string, tamanho: number): string[] {
+  const blocos: string[] = [];
+  let i = 0;
+  while (i < texto.length) {
+    let fim = Math.min(i + tamanho, texto.length);
+    if (fim < texto.length) {
+      const quebra = texto.lastIndexOf("\n", fim);
+      if (quebra > i + tamanho * 0.6) fim = quebra;
+    }
+    blocos.push(texto.slice(i, fim));
+    i = fim;
+  }
+  return blocos;
+}
+
+/**
+ * Resumo de documento grande (mapa-e-redução): extrai notas factuais de cada
+ * parte (em paralelo) e depois consolida no resumo executivo final. Garante
+ * cobertura de todo o documento sem exceder o contexto da IA de uma vez.
+ */
+async function resumoMapReduce(
+  docNome: string,
+  texto: string,
+  licitacao: LicitacaoContexto | null,
+  itens: ItemContratacaoPNCP[] | null,
+): Promise<string> {
+  const limite = CHUNK_RESUMO * MAX_CHUNKS_RESUMO;
+  const usado = texto.slice(0, limite);
+  const truncado = texto.length > limite;
+  const blocos = dividirEmBlocos(usado, CHUNK_RESUMO);
+
+  // MAP em paralelo: cada parte vira notas factuais do que ela contém.
+  const notas = await Promise.all(
+    blocos.map(async (bloco, i) => {
+      try {
+        const r = await conversarComIA(
+          [
+            { role: "system", content: INSTRUCOES_MAP },
+            {
+              role: "user",
+              content: `Parte ${i + 1} de ${blocos.length} do edital:\n\n${bloco}`,
+            },
+          ],
+          1500,
+        );
+        return `### Notas da parte ${i + 1}\n${r}`;
+      } catch {
+        return `### Notas da parte ${i + 1}\n(não foi possível processar esta parte)`;
+      }
+    }),
+  );
+
+  // REDUCE: consolida as notas + dados oficiais no resumo executivo final.
+  const blocosReduce = [INSTRUCOES_RESUMO];
+  if (licitacao) {
+    blocosReduce.push(`## Dados oficiais da licitação (PNCP)\n${formatarLicitacao(licitacao)}`);
+  }
+  if (itens && itens.length > 0) {
+    blocosReduce.push(`## Itens do edital (via API do PNCP)\n${formatarItens(itens)}`);
+  }
+  blocosReduce.push(
+    `## Notas extraídas do edital "${docNome}"${
+      truncado ? " (documento muito extenso; as notas cobrem o início)" : ""
+    }\nEstas notas foram extraídas parte a parte do próprio edital. Baseie o resumo APENAS nelas e nos dados oficiais acima; não invente.\n\n${
+      notas.join("\n\n")
+    }`,
+  );
+
+  return await conversarComIA(
+    [
+      { role: "system", content: blocosReduce.join("\n\n") },
+      { role: "user", content: "Gere o resumo executivo consolidando as notas." },
+    ],
+    4096,
+  );
+}
+
 /**
  * Gera um resumo executivo estruturado do edital anexado à conversa. Exige o
  * documento no contexto (sem ele, devolve 400 com mensagem amigável) e nunca
- * inventa: envia o texto integral do edital + os dados oficiais do PNCP.
+ * inventa: envia o texto integral do edital + os dados oficiais do PNCP. Acima
+ * de MAX_DOC_RESUMO usa mapa-e-redução para cobrir o documento inteiro.
  */
 async function modoResumoExecutivo(
   supabase: ClienteSupabase,
@@ -564,29 +663,31 @@ async function modoResumoExecutivo(
     : null;
 
   const texto = conversa.documento_texto as string;
-  const textoParaIa = texto.slice(0, MAX_DOC_RESUMO);
-  const truncado = texto.length > MAX_DOC_RESUMO;
+  const docNome = conversa.documento_nome as string;
+  const grande = texto.length > MAX_DOC_RESUMO;
 
-  const blocos = [INSTRUCOES_RESUMO];
-  if (licitacao) {
-    blocos.push(`## Dados oficiais da licitação (PNCP)\n${formatarLicitacao(licitacao)}`);
-  }
-  if (itens && itens.length > 0) {
-    blocos.push(`## Itens do edital (via API do PNCP)\n${formatarItens(itens)}`);
-  }
-  blocos.push(
-    `## Edital anexado: "${conversa.documento_nome}"${
-      truncado ? " (INÍCIO — documento extenso; baseie-se apenas neste trecho)" : ""
-    }\n${textoParaIa}`,
-  );
+  let resposta: string;
+  if (grande) {
+    // Documento extenso: mapa-e-redução cobre o texto inteiro (parte a parte).
+    resposta = await resumoMapReduce(docNome, texto, licitacao, itens);
+  } else {
+    const blocos = [INSTRUCOES_RESUMO];
+    if (licitacao) {
+      blocos.push(`## Dados oficiais da licitação (PNCP)\n${formatarLicitacao(licitacao)}`);
+    }
+    if (itens && itens.length > 0) {
+      blocos.push(`## Itens do edital (via API do PNCP)\n${formatarItens(itens)}`);
+    }
+    blocos.push(`## Edital anexado: "${docNome}"\n${texto}`);
 
-  const resposta = await conversarComIA(
-    [
-      { role: "system", content: blocos.join("\n\n") },
-      { role: "user", content: "Gere o resumo executivo deste edital." },
-    ],
-    4096,
-  );
+    resposta = await conversarComIA(
+      [
+        { role: "system", content: blocos.join("\n\n") },
+        { role: "user", content: "Gere o resumo executivo deste edital." },
+      ],
+      4096,
+    );
+  }
 
   console.log(
     JSON.stringify({
@@ -594,7 +695,7 @@ async function modoResumoExecutivo(
       acao: "resumo_executivo",
       conversa_id: conversaId,
       caracteres: texto.length,
-      truncado,
+      modo: grande ? "mapa_reduce" : "inteiro",
     }),
   );
   return respostaJson({ resposta }, 200);
