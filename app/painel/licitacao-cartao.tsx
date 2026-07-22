@@ -47,13 +47,16 @@ export function LicitacaoCartao({
   nova = false,
   mostrarAnalise = false,
   matchId = null,
+  reexibir = false,
 }: {
   licitacao: LicitacaoCartaoDados;
   favoritoId: string | null;
   nova?: boolean;
   mostrarAnalise?: boolean;
-  /** Quando presente, mostra a ação "Ocultar" (usa matches.oculto). */
+  /** Quando presente, mostra a ação "Ocultar"/"Reexibir" (usa matches.oculto). */
   matchId?: string | null;
+  /** true = cartão está na lista de ocultas (ação vira "Reexibir"). */
+  reexibir?: boolean;
 }) {
   const l = licitacao;
   const linkPncp = linkPaginaPncp(l.numero_controle_pncp);
@@ -98,7 +101,7 @@ export function LicitacaoCartao({
             Ver no sistema de origem ↗
           </a>
         )}
-        {matchId && <OcultarBotao matchId={matchId} />}
+        {matchId && <OcultarBotao matchId={matchId} reexibir={reexibir} />}
       </p>
     </div>
   );
