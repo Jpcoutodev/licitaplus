@@ -1463,3 +1463,8 @@ main.container {
   border-color: transparent;
   font-weight: 600;
 }
+
+.bloco-resumo {
+  border-top: 1px solid var(--borda);
+  padding-top: 16px;
+}

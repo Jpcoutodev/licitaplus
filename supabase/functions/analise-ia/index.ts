@@ -255,6 +255,9 @@ Deno.serve(async (req) => {
     if (corpo?.acao === "analisar_arquivo") {
       return await modoAnalisarArquivo(supabase, corpo);
     }
+    if (corpo?.acao === "resumo_executivo") {
+      return await modoResumoExecutivo(supabase, corpo);
+    }
     if (typeof corpo?.pdf_base64 === "string") {
       return await modoPdfAnexado(supabase, corpo);
     }
@@ -373,6 +376,137 @@ async function modoPdfAnexado(
       400,
     );
   }
+}
+
+/** Documento até este tamanho vai inteiro para o resumo (M3 comporta ~400k). */
+const MAX_DOC_RESUMO = 360_000;
+
+const INSTRUCOES_RESUMO =
+  `Você é um consultor sênior em licitações públicas (Lei 14.133/2021). Gere um
+RESUMO EXECUTIVO do edital anexado, para o dono de uma PME decidir rápido se
+vale participar.
+
+REGRA ABSOLUTA — NÃO INVENTE NADA:
+- Baseie-se EXCLUSIVAMENTE no texto do edital anexado e nos dados oficiais do
+  PNCP fornecidos abaixo. Não use conhecimento externo para preencher lacunas.
+- Se uma informação não constar no material, escreva "não informado no edital"
+  naquele campo. NUNCA estime, deduza ou invente valores, datas, prazos,
+  percentuais ou exigências.
+- Não copie parágrafos inteiros do edital; sintetize em linguagem clara.
+
+FORMATO (markdown, exatamente estas seções, nesta ordem; pule uma seção só se o
+edital realmente não tratar do assunto):
+
+# Resumo Executivo do Edital
+Uma linha com a modalidade e número, o órgão e o município (ex.: "Pregão
+Eletrônico nº 05/2026 — Câmara Municipal de Valinhos/SP").
+
+## Objeto
+Bullets curtos com o que está sendo contratado.
+
+## Informações Principais
+Tabela markdown com duas colunas (| Item | Informação |). Inclua, quando
+houver: modalidade, critério de julgamento, modo de disputa, data/hora da
+sessão pública, vigência, valor estimado total, valores parciais relevantes,
+participação ME/EPP.
+
+## Escopo dos Serviços / Fornecimento
+O que a contratada deverá executar ou entregar (use subitens se ajudar).
+
+## Exigências Técnicas e de Habilitação
+Registros, certidões, responsável técnico, equipe mínima, atestados, normas.
+
+## Obrigações Relevantes da Contratada
+Bullets com as principais obrigações.
+
+## Garantia Contratual
+Percentual/forma, se exigida; senão, "não informado no edital".
+
+## Pagamento
+Prazo e condições.
+
+## Penalidades
+Advertência, multas (percentuais), impedimento, inidoneidade — conforme o edital.
+
+## Pontos de Atenção para o Fornecedor
+Bullets iniciados com ✅ destacando o que mais pesa na decisão de participar.
+
+## Conclusão
+2 a 4 frases: complexidade, exigências-chave, valor estimado e critério de
+disputa. Não dê veredito categórico de "participe/não participe" — aponte os
+fatores.`;
+
+/**
+ * Gera um resumo executivo estruturado do edital anexado à conversa. Exige o
+ * documento no contexto (sem ele, devolve 400 com mensagem amigável) e nunca
+ * inventa: envia o texto integral do edital + os dados oficiais do PNCP.
+ */
+async function modoResumoExecutivo(
+  supabase: ClienteSupabase,
+  corpo: Record<string, unknown>,
+): Promise<Response> {
+  const conversaId = await validarConversa(supabase, corpo?.conversa_id);
+  if (!conversaId) {
+    return respostaJson({ erro: "conversa não encontrada" }, 404);
+  }
+
+  const { data: conversa } = await supabase
+    .from("conversas_ia")
+    .select("documento_nome, documento_texto, documento_caracteres")
+    .eq("id", conversaId)
+    .maybeSingle();
+
+  if (!conversa?.documento_nome || !conversa?.documento_texto) {
+    return respostaJson(
+      {
+        erro:
+          "É necessário anexar o edital ao contexto da conversa antes de gerar o resumo executivo.",
+      },
+      400,
+    );
+  }
+
+  // Dados oficiais (best-effort) para a seção de informações principais.
+  const licitacao = await carregarLicitacao(supabase, corpo?.licitacao_id);
+  const itens = licitacao
+    ? await buscarItensContratacao(licitacao.numero_controle_pncp)
+    : null;
+
+  const texto = conversa.documento_texto as string;
+  const textoParaIa = texto.slice(0, MAX_DOC_RESUMO);
+  const truncado = texto.length > MAX_DOC_RESUMO;
+
+  const blocos = [INSTRUCOES_RESUMO];
+  if (licitacao) {
+    blocos.push(`## Dados oficiais da licitação (PNCP)\n${formatarLicitacao(licitacao)}`);
+  }
+  if (itens && itens.length > 0) {
+    blocos.push(`## Itens do edital (via API do PNCP)\n${formatarItens(itens)}`);
+  }
+  blocos.push(
+    `## Edital anexado: "${conversa.documento_nome}"${
+      truncado ? " (INÍCIO — documento extenso; baseie-se apenas neste trecho)" : ""
+    }\n${textoParaIa}`,
+  );
+
+  const resposta = await conversarComIA(
+    [
+      { role: "system", content: blocos.join("\n\n") },
+      { role: "user", content: "Gere o resumo executivo deste edital." },
+    ],
+    4096,
+  );
+
+  console.log(
+    JSON.stringify({
+      funcao: "analise-ia",
+      acao: "resumo_executivo",
+      conversa_id: conversaId,
+      caracteres: texto.length,
+      truncado,
+    }),
+  );
+  return respostaJson({ resposta }, 200);
 }
 
 async function modoConversa(

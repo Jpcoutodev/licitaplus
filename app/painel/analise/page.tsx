@@ -78,6 +78,7 @@ function ChatAnalise() {
   const [mensagens, setMensagens] = useState<MensagemChat[]>([]);
   const [texto, setTexto] = useState("");
   const [pensando, setPensando] = useState(false);
+  const [gerandoResumo, setGerandoResumo] = useState(false);
   const [carregandoConversa, setCarregandoConversa] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [documento, setDocumento] = useState<DocumentoAnexado | null>(null);
@@ -356,6 +357,62 @@ function ChatAnalise() {
     setErro(null);
   }
 
+  /** Gera um resumo executivo do edital anexado (exige documento no contexto). */
+  async function gerarResumoExecutivo() {
+    if (!licitacaoId || pensando || gerandoResumo) return;
+    if (!documento) {
+      setErro(
+        'É necessário anexar o edital ao contexto da conversa antes de gerar o resumo executivo — use "Anexar ao contexto da conversa" em um arquivo do PNCP, ou "Anexar arquivo (PDF ou Word)".',
+      );
+      return;
+    }
+
+    setErro(null);
+    const marcador: MensagemChat = {
+      role: "user",
+      content: "📋 Gerar resumo executivo do edital anexado",
+    };
+    const base = [...mensagens, marcador];
+    setMensagens(base);
+    setGerandoResumo(true);
+    setPensando(true);
+
+    try {
+      const supabase = criarClientNavegador();
+      const id = await garantirConversa();
+      const { data, error } = await supabase.functions.invoke("analise-ia", {
+        body: {
+          acao: "resumo_executivo",
+          conversa_id: id,
+          licitacao_id: licitacaoId,
+        },
+      });
+      if (error) {
+        throw new Error(
+          await mensagemDaFuncao(error, "não foi possível gerar o resumo"),
+        );
+      }
+      const resposta = (data as { resposta?: string })?.resposta;
+      if (!resposta) throw new Error("resposta vazia da IA");
+
+      setMensagens([...base, { role: "assistant", content: resposta }]);
+      await supabase.from("mensagens_ia").insert([
+        { conversa_id: id, role: "user", conteudo: marcador.content },
+        { conversa_id: id, role: "assistant", conteudo: resposta },
+      ]);
+    } catch (excecao) {
+      setMensagens(mensagens); // desfaz o marcador em caso de falha
+      setErro(
+        excecao instanceof Error
+          ? `Não foi possível gerar o resumo: ${excecao.message}`
+          : "Não foi possível gerar o resumo executivo.",
+      );
+    } finally {
+      setGerandoResumo(false);
+      setPensando(false);
+    }
+  }
+
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault();
     const pergunta = texto.trim();
@@ -539,6 +596,24 @@ function ChatAnalise() {
             </p>
           )}
         </div>
+
+        {licitacaoId && (
+          <div className="campo bloco-resumo">
+            <button
+              type="button"
+              className="botao"
+              disabled={pensando || gerandoResumo}
+              onClick={gerarResumoExecutivo}
+            >
+              {gerandoResumo ? "Gerando resumo..." : "📋 Resumo executivo"}
+            </button>
+            <p className="ajuda">
+              Gera um resumo estruturado do edital anexado (objeto, valores,
+              exigências, prazos, penalidades). Exige o edital no contexto e não
+              inventa dados.
+            </p>
+          </div>
+        )}
 
         <div className="chat-janela">
           {carregandoConversa && (
