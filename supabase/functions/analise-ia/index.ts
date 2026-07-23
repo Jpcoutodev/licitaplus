@@ -267,16 +267,55 @@ const FERRAMENTAS: DefinicaoFerramenta[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "favoritar_licitacao",
+      description:
+        "Adiciona uma licitação aos Favoritos do usuário. Use quando ele pedir " +
+        "para favoritar/salvar/guardar uma das licitações que você encontrou " +
+        "com buscar_licitacoes. Passe o numero_controle_pncp EXATO retornado " +
+        "pela busca (formato CNPJ-1-SEQ/ANO).",
+      parameters: {
+        type: "object",
+        properties: {
+          numero_controle_pncp: {
+            type: "string",
+            description:
+              "Número de controle PNCP exato da licitação (ex.: " +
+              "'12345678000199-1-000123/2026'), copiado do resultado da busca.",
+          },
+        },
+        required: ["numero_controle_pncp"],
+      },
+    },
+  },
 ];
 
-/** Executa a ferramenta pedida pela IA e devolve o resultado como texto. */
-async function executarFerramenta(
-  nome: string,
+/**
+ * Grava no banco as licitações achadas pela busca da IA (best-effort), para
+ * que possam ser favoritadas. Usa a service role APENAS neste upsert — a
+ * escrita em `licitacoes` (dado compartilhado) é restrita ao servidor.
+ * ignoreDuplicates: nunca rebaixa um registro completo vindo da varredura.
+ */
+async function persistirAchados(achados: LicitacaoColetada[]): Promise<void> {
+  try {
+    const service = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    await service.from("licitacoes").upsert(achados, {
+      onConflict: "numero_controle_pncp",
+      ignoreDuplicates: true,
+    });
+  } catch {
+    // best-effort: a busca continua útil mesmo sem persistir
+  }
+}
+
+async function ferramentaBuscar(
   args: Record<string, unknown>,
 ): Promise<string> {
-  if (nome !== "buscar_licitacoes") {
-    return `ferramenta desconhecida: ${nome}`;
-  }
   const termo = typeof args.termo === "string" ? args.termo.trim() : "";
   if (!termo) return "Informe um termo de busca (o que a empresa vende).";
   const uf = typeof args.uf === "string" && args.uf.trim()
@@ -290,12 +329,63 @@ async function executarFerramenta(
         uf ? ` em ${uf}` : " no Brasil"
       } neste momento.`;
     }
-    return formatarAchadosPncp(achados.slice(0, MAX_ACHADOS_BUSCA));
+    const recorte = achados.slice(0, MAX_ACHADOS_BUSCA);
+    await persistirAchados(recorte);
+    return formatarAchadosPncp(recorte);
   } catch (erro) {
     return `Não foi possível consultar o PNCP agora: ${
       erro instanceof Error ? erro.message : "erro"
     }.`;
   }
+}
+
+async function ferramentaFavoritar(
+  supabase: ClienteSupabase,
+  userId: string,
+  args: Record<string, unknown>,
+): Promise<string> {
+  const numero = typeof args.numero_controle_pncp === "string"
+    ? args.numero_controle_pncp.trim()
+    : "";
+  if (!numero) {
+    return "Informe o numero_controle_pncp exato da licitação (copiado do resultado da busca).";
+  }
+
+  const { data: licitacao } = await supabase
+    .from("licitacoes")
+    .select("id, objeto_compra")
+    .eq("numero_controle_pncp", numero)
+    .maybeSingle();
+  if (!licitacao) {
+    return `Licitação ${numero} não encontrada na base. Refaça a busca (buscar_licitacoes) e use o Controle PNCP exato de um dos resultados.`;
+  }
+
+  const { error } = await supabase
+    .from("favoritos")
+    .insert({ user_id: userId, licitacao_id: licitacao.id });
+  if (error) {
+    if (error.code === "23505") {
+      return `A licitação ${numero} já estava nos Favoritos do usuário.`;
+    }
+    return `Não foi possível favoritar: ${error.message}`;
+  }
+  return `Favoritada com sucesso: "${
+    String(licitacao.objeto_compra).slice(0, 120)
+  }" (${numero}). Ela já aparece na aba Favoritos e pode ser selecionada em "Licitação em análise" para análise detalhada.`;
+}
+
+/** Cria o executor de ferramentas com o contexto do usuário da requisição. */
+function criarExecutorFerramentas(
+  supabase: ClienteSupabase,
+  userId: string,
+): (nome: string, args: Record<string, unknown>) => Promise<string> {
+  return async (nome, args) => {
+    if (nome === "buscar_licitacoes") return await ferramentaBuscar(args);
+    if (nome === "favoritar_licitacao") {
+      return await ferramentaFavoritar(supabase, userId, args);
+    }
+    return `ferramenta desconhecida: ${nome}`;
+  };
 }
 
 function formatarAchadosPncp(achados: LicitacaoColetada[]): string {
@@ -350,7 +440,7 @@ Deno.serve(async (req) => {
     if (typeof corpo?.pdf_base64 === "string") {
       return await modoPdfAnexado(supabase, corpo);
     }
-    return await modoConversa(supabase, corpo);
+    return await modoConversa(supabase, corpo, user.id);
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : String(erro);
     console.error(JSON.stringify({ funcao: "analise-ia", erro: mensagem }));
@@ -704,6 +794,7 @@ async function modoResumoExecutivo(
 async function modoConversa(
   supabase: ClienteSupabase,
   corpo: Record<string, unknown>,
+  userId: string,
 ): Promise<Response> {
   const mensagens = validarMensagens(corpo?.mensagens);
   if (!mensagens) {
@@ -747,7 +838,7 @@ async function modoConversa(
     4096,
     {
       ferramentas: FERRAMENTAS,
-      executarFerramenta,
+      executarFerramenta: criarExecutorFerramentas(supabase, userId),
       maxCiclosFerramenta: 3,
     },
   );
@@ -993,6 +1084,12 @@ BUSCA DE LICITAÇÕES (você TEM esta ferramenta — use-a):
   do PNCP no Brasil todo e pode buscar por ramo/produto/estado; o que você não
   faz é navegar em sites da web em geral.
 - NUNCA invente resultados: cite apenas licitações que a ferramenta retornou.
+- Você também PODE FAVORITAR uma licitação para o usuário: quando ele pedir
+  ("favorita a 2", "salva essa pra mim"), chame favoritar_licitacao com o
+  numero_controle_pncp EXATO daquele resultado. Confirme e avise que ela está
+  na aba Favoritos e pode ser selecionada em "Licitação em análise" para
+  análise detalhada do edital. Se ele indicar uma licitação por posição (ex.:
+  "a primeira"), use o resultado correspondente da SUA última busca.
 
 COMO RESPONDER:
 - Vá direto ao ponto. Responda a pergunta primeiro, com orientação prática.
