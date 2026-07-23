@@ -101,6 +101,31 @@ function chaveProgresso(fatia: Fatia): { uf: string; modalidade: number } {
   return { uf: fatia.uf ?? "BR", modalidade: fatia.codigoModalidade ?? 0 };
 }
 
+/** Posição do rodízio (round-robin) de um mecanismo de coleta. */
+async function lerRodizio(
+  supabase: SupabaseClient,
+  chave: string,
+): Promise<number> {
+  const { data } = await supabase
+    .from("coleta_rodizio")
+    .select("posicao")
+    .eq("chave", chave)
+    .maybeSingle();
+  return data?.posicao ?? 0;
+}
+
+async function gravarRodizio(
+  supabase: SupabaseClient,
+  chave: string,
+  posicao: number,
+): Promise<void> {
+  await supabase.from("coleta_rodizio").upsert({
+    chave,
+    posicao,
+    atualizado_em: new Date().toISOString(),
+  });
+}
+
 async function lerPaginaInicial(
   supabase: SupabaseClient,
   fatia: Fatia,
@@ -189,8 +214,9 @@ export interface ResultadoBuscaTextual {
   erros: string[];
 }
 
-/** Limite de consultas textuais (termo × UF) por janela. */
-const MAX_CONSULTAS_TEXTUAIS = 12;
+/** Limite de consultas textuais (termo × UF) por janela. Com o rodízio, cada
+ *  janela continua de onde a anterior parou — todos os pares têm a vez. */
+const MAX_CONSULTAS_TEXTUAIS = 30;
 
 /**
  * Coleta dirigida pelas palavras-chave dos perfis via busca textual do PNCP
@@ -235,9 +261,16 @@ export async function coletarPorBuscaTextual(
     }
   }
 
-  for (const { termo, uf } of pares.values()) {
+  // Rodízio: continua da posição onde a janela anterior parou, circularmente,
+  // para que com muitos pares todos tenham a vez (não só os primeiros).
+  const lista = [...pares.values()];
+  if (lista.length === 0) return resultado;
+  const inicio = (await lerRodizio(supabase, "busca_textual")) % lista.length;
+
+  for (let i = 0; i < lista.length; i++) {
     if (resultado.consultas >= MAX_CONSULTAS_TEXTUAIS) break;
     if (Date.now() >= prazoMs) break;
+    const { termo, uf } = lista[(inicio + i) % lista.length];
     resultado.consultas++;
 
     try {
@@ -252,6 +285,7 @@ export async function coletarPorBuscaTextual(
     await sleep(PAUSA_ENTRE_PAGINAS_MS);
   }
 
+  await gravarRodizio(supabase, "busca_textual", inicio + resultado.consultas);
   return resultado;
 }
 
@@ -311,7 +345,17 @@ export async function executarJanelaDeColeta(
   buscaTextual: ResultadoBuscaTextual;
 }> {
   const prazoMs = Date.now() + ORCAMENTO_MS;
-  const fatias = fatiasEscolhidas ?? derivarFatias(perfis);
+  let fatias = fatiasEscolhidas ?? derivarFatias(perfis);
+
+  // Rodízio das fatias (só no caminho do cron): começa de onde a janela
+  // anterior parou, para nenhuma UF/modalidade ficar cronicamente para trás
+  // quando o orçamento de tempo não alcança todas.
+  const rotacionar = !fatiasEscolhidas && fatias.length > 1;
+  let inicioFatias = 0;
+  if (rotacionar) {
+    inicioFatias = (await lerRodizio(supabase, "fatias")) % fatias.length;
+    fatias = [...fatias.slice(inicioFatias), ...fatias.slice(0, inicioFatias)];
+  }
 
   const acumulado = new Map<string, ResultadoMatching>();
   somarMatching(acumulado, await executarMatchingPerfis(supabase, perfis));
@@ -329,6 +373,13 @@ export async function executarJanelaDeColeta(
     if (resultado.coletadas > 0) {
       somarMatching(acumulado, await executarMatchingPerfis(supabase, perfis));
     }
+  }
+  if (rotacionar) {
+    await gravarRodizio(
+      supabase,
+      "fatias",
+      inicioFatias + resultadosFatias.length,
+    );
   }
 
   return {
