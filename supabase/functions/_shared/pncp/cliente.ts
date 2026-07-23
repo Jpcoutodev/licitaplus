@@ -256,22 +256,31 @@ export async function listarArquivosContratacao(
   }
 }
 
+export type DownloadArquivo =
+  | { ok: true; bytes: Uint8Array }
+  | { ok: false; motivo: "grande"; bytesTotais: number }
+  | { ok: false; motivo: "indisponivel" };
+
 /**
  * Baixa um arquivo de contratação (a URL deve vir da listagem acima — nunca
- * do cliente) e retorna os bytes, ou null se exceder o limite ou falhar.
+ * do cliente). O resultado distingue "grande demais" de "PNCP indisponível"
+ * para o chamador dar uma mensagem precisa ao usuário.
  */
 export async function baixarArquivoContratacao(
   urlArquivo: string,
   maxBytes: number,
-): Promise<Uint8Array | null> {
+): Promise<DownloadArquivo> {
   try {
     const resposta = await fetchWithRetry(urlArquivo, {}, RETRY_PNCP);
-    if (!resposta.ok) return null;
+    if (!resposta.ok) return { ok: false, motivo: "indisponivel" };
     const bytes = new Uint8Array(await resposta.arrayBuffer());
-    if (bytes.length === 0 || bytes.length > maxBytes) return null;
-    return bytes;
+    if (bytes.length === 0) return { ok: false, motivo: "indisponivel" };
+    if (bytes.length > maxBytes) {
+      return { ok: false, motivo: "grande", bytesTotais: bytes.length };
+    }
+    return { ok: true, bytes };
   } catch {
-    return null;
+    return { ok: false, motivo: "indisponivel" };
   }
 }
 

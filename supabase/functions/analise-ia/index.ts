@@ -48,8 +48,9 @@ const MAX_ITENS_NO_CONTEXTO = 40;
 const MAX_FAVORITAS_NO_CONTEXTO = 15;
 /** ~9 MB de base64 ≈ PDF de 6,5 MB — acima disso a extração é recusada. */
 const MAX_BASE64_PDF = 9_000_000;
-/** Limite de download de arquivo do PNCP para análise. */
-const MAX_BYTES_ARQUIVO_PNCP = 12_000_000;
+/** Limite de download de arquivo do PNCP para análise (editais escaneados
+ *  chegam a dezenas de MB; a function tem memória para isso). */
+const MAX_BYTES_ARQUIVO_PNCP = 40_000_000;
 /** Documento até este tamanho vai INTEIRO para a IA; acima, vira trechos.
  *  M3 comporta ~400k chars num pedido; 300k deixa margem para itens,
  *  favoritas, sumário e histórico. */
@@ -171,7 +172,7 @@ async function extrairTextoDeArquivo(
     const extraido = await extrairTextoPdfBytes(bytes);
     if (!extraido.texto.trim()) {
       throw new Error(
-        "o PDF não contém texto extraível (provavelmente escaneado como imagem)",
+        "este PDF foi escaneado como imagem e não tem texto extraível — ainda não lemos editais escaneados. Use o botão Baixar para abri-lo, ou anexe outro documento da licitação (ex.: o Termo de Referência ou o ETP, que costumam ser digitais)",
       );
     }
     return { texto: extraido.texto, paginas: extraido.paginas };
@@ -527,19 +528,29 @@ async function modoAnalisarArquivo(
     return respostaJson({ erro: "arquivo não encontrado no PNCP" }, 404);
   }
 
-  const bytes = await baixarArquivoContratacao(
+  const download = await baixarArquivoContratacao(
     arquivo.url,
     MAX_BYTES_ARQUIVO_PNCP,
   );
-  if (!bytes) {
+  if (!download.ok) {
+    if (download.motivo === "grande") {
+      const mb = Math.round(download.bytesTotais / 1_000_000);
+      return respostaJson(
+        {
+          erro:
+            `o arquivo tem ${mb} MB — acima do limite de ${MAX_BYTES_ARQUIVO_PNCP / 1_000_000} MB para análise. Use o botão Baixar para abri-lo no computador.`,
+        },
+        400,
+      );
+    }
     return respostaJson(
-      { erro: "não foi possível baixar o arquivo (grande demais ou PNCP indisponível)" },
+      { erro: "o PNCP não respondeu ao baixar o arquivo — tente novamente em alguns instantes" },
       502,
     );
   }
 
   try {
-    const extraido = await extrairTextoDeArquivo(bytes);
+    const extraido = await extrairTextoDeArquivo(download.bytes);
     const nome = nomeComPacote(
       arquivo.titulo ?? `documento-${arquivo.sequencialDocumento}`,
       extraido.arquivos,
