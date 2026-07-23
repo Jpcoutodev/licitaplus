@@ -385,10 +385,40 @@ function criarExecutorFerramentas(
   supabase: ClienteSupabase,
   userId: string,
 ): (nome: string, args: Record<string, unknown>) => Promise<string> {
+  const service = clientServico();
   return async (nome, args) => {
-    if (nome === "buscar_licitacoes") return await ferramentaBuscar(args);
+    const inicio = Date.now();
+    if (nome === "buscar_licitacoes") {
+      const resultado = await ferramentaBuscar(args);
+      const encontradas = Number.parseInt(resultado, 10);
+      await registrarEvento(service, {
+        user_id: userId,
+        acao: "busca_ia",
+        sucesso: !resultado.startsWith("Não foi possível"),
+        detalhes: {
+          termo: typeof args.termo === "string" ? args.termo : null,
+          uf: typeof args.uf === "string" ? args.uf : null,
+          resultados: Number.isFinite(encontradas) ? encontradas : 0,
+        },
+        duracao_ms: Date.now() - inicio,
+      });
+      return resultado;
+    }
     if (nome === "favoritar_licitacao") {
-      return await ferramentaFavoritar(supabase, userId, args);
+      const resultado = await ferramentaFavoritar(supabase, userId, args);
+      await registrarEvento(service, {
+        user_id: userId,
+        acao: "favoritar_ia",
+        sucesso: resultado.startsWith("Favoritada") ||
+          resultado.includes("já estava"),
+        detalhes: {
+          numero_controle: typeof args.numero_controle_pncp === "string"
+            ? args.numero_controle_pncp
+            : null,
+        },
+        duracao_ms: Date.now() - inicio,
+      });
+      return resultado;
     }
     return `ferramenta desconhecida: ${nome}`;
   };
@@ -411,9 +441,31 @@ function formatarAchadosPncp(achados: LicitacaoColetada[]): string {
   return cabecalho + corpo;
 }
 
+/** Registra um evento de telemetria da IA (best-effort, nunca derruba a operação). */
+async function registrarEvento(
+  service: ClienteSupabase,
+  evento: {
+    user_id: string;
+    acao: string;
+    sucesso: boolean;
+    conversa_id?: string | null;
+    licitacao_id?: string | null;
+    erro?: string | null;
+    detalhes?: Record<string, unknown> | null;
+    duracao_ms?: number;
+  },
+): Promise<void> {
+  try {
+    await service.from("ia_eventos").insert(evento);
+  } catch {
+    // telemetria é secundária
+  }
+}
+
 Deno.serve(async (req) => {
   const preflight = respostaPreflight(req);
   if (preflight) return preflight;
+  const inicioReq = Date.now();
 
   try {
     const corpo = await req.json().catch(() => ({}));
@@ -438,7 +490,28 @@ Deno.serve(async (req) => {
     // análise (o resumo executivo do documento anexado está incluído).
     const service = clientServico();
     const assinatura = await lerAssinatura(service, user.id, user.email ?? null);
+
+    const acaoLog = corpo?.acao === "analisar_arquivo"
+      ? "anexar_pncp"
+      : corpo?.acao === "resumo_executivo"
+        ? "resumo_executivo"
+        : typeof corpo?.pdf_base64 === "string"
+          ? "anexar_upload"
+          : "conversa";
+    const idsLog = {
+      conversa_id: typeof corpo?.conversa_id === "string" ? corpo.conversa_id : null,
+      licitacao_id: typeof corpo?.licitacao_id === "string" ? corpo.licitacao_id : null,
+    };
+
     if (assinatura.estado === "expirado") {
+      await registrarEvento(service, {
+        user_id: user.id,
+        acao: acaoLog,
+        sucesso: false,
+        ...idsLog,
+        erro: "conta expirada",
+        duracao_ms: Date.now() - inicioReq,
+      });
       return respostaJson(
         { erro: "Seu período de teste terminou. Assine um plano para continuar usando a análise com IA." },
         402,
@@ -455,6 +528,14 @@ Deno.serve(async (req) => {
       ehAnaliseNova && assinatura.estado !== "admin" &&
       assinatura.usadas >= assinatura.limite
     ) {
+      await registrarEvento(service, {
+        user_id: user.id,
+        acao: acaoLog,
+        sucesso: false,
+        ...idsLog,
+        erro: `limite de análises atingido (${assinatura.usadas}/${assinatura.limite}, ${assinatura.estado})`,
+        duracao_ms: Date.now() - inicioReq,
+      });
       return respostaJson(
         {
           erro: assinatura.estado === "trial"
@@ -479,6 +560,41 @@ Deno.serve(async (req) => {
     if (ehAnaliseNova && resposta.status === 200 && assinatura.estado !== "admin") {
       await debitarAnalise(service, user.id);
     }
+
+    // Telemetria: o que aconteceu, com o motivo real em caso de falha.
+    let erroLog: string | null = null;
+    let detalhesLog: Record<string, unknown> | null = null;
+    try {
+      const corpoResp = await resposta.clone().json();
+      if (resposta.status !== 200) {
+        erroLog = (corpoResp?.erro as string) ?? `http ${resposta.status}`;
+      } else if (acaoLog === "anexar_pncp" || acaoLog === "anexar_upload") {
+        detalhesLog = {
+          nome: corpoResp?.nome ?? null,
+          paginas: corpoResp?.paginas ?? null,
+          caracteres: corpoResp?.caracteres_totais ?? null,
+          modo: corpoResp?.modo ?? null,
+        };
+      } else {
+        detalhesLog = {
+          caracteres_resposta: typeof corpoResp?.resposta === "string"
+            ? corpoResp.resposta.length
+            : null,
+        };
+      }
+    } catch {
+      // corpo não-JSON: registra só o status
+      if (resposta.status !== 200) erroLog = `http ${resposta.status}`;
+    }
+    await registrarEvento(service, {
+      user_id: user.id,
+      acao: acaoLog,
+      sucesso: resposta.status === 200,
+      ...idsLog,
+      erro: erroLog,
+      detalhes: detalhesLog,
+      duracao_ms: Date.now() - inicioReq,
+    });
     return resposta;
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : String(erro);
