@@ -1621,3 +1621,33 @@ main.container {
 }
 .link-analisar:hover { text-decoration: underline; }
 .link-analisar:disabled { opacity: 0.6; cursor: default; }
+
+/* botão destacado "Analisar com IA" nos cartões */
+.botao-analisar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(100deg, #2563eb, #1d4ed8 55%, #16a34a 140%);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: transform 0.12s, box-shadow 0.15s, filter 0.15s;
+}
+.botao-analisar:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 7px 18px rgba(37, 99, 235, 0.45);
+}
+.botao-analisar:active { transform: translateY(0); }
+.botao-analisar:disabled {
+  opacity: 0.65;
+  cursor: default;
+  transform: none;
+}
+.botao-analisar svg { flex-shrink: 0; }

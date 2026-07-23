@@ -39,11 +39,21 @@ export function AnalisarBotao({
   return (
     <button
       type="button"
-      className="link-analisar"
+      className="botao-analisar"
       onClick={analisar}
       disabled={indo}
     >
-      {indo ? "Abrindo análise..." : "Analisar com IA →"}
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden
+      >
+        <path d="M12 2.5l2 5.6 5.6 2-5.6 2-2 5.6-2-5.6-5.6-2 5.6-2z" />
+        <path d="M19 14.5l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1z" opacity="0.85" />
+      </svg>
+      {indo ? "Abrindo análise..." : "Analisar com IA"}
     </button>
   );
 }

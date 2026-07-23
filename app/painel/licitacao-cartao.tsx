@@ -85,7 +85,7 @@ export function LicitacaoCartao({
         {formatarData(l.data_encerramento_proposta)} · <strong>Órgão:</strong>{" "}
         {l.orgao_razao_social ?? "não informado"}
       </p>
-      <p style={{ marginTop: 10, display: "flex", gap: 14, flexWrap: "wrap" }}>
+      <p style={{ marginTop: 12, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
         {mostrarAnalise && (
           <AnalisarBotao licitacaoId={l.id} jaFavorita={Boolean(favoritoId)} />
         )}
