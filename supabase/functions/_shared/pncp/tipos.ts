@@ -1,7 +1,7 @@
 /**
  * Tipos da API de consulta do PNCP e do formato interno de licitação.
- * Somente os campos que o sistema usa são tipados explicitamente; o restante
- * é preservado em raw_json para reprocessamento futuro.
+ * Somente os campos que o sistema usa são tipados explicitamente; os demais
+ * campos do PNCP são ignorados (não são persistidos).
  */
 
 export interface OrgaoEntidadePNCP {
@@ -60,5 +60,4 @@ export interface LicitacaoColetada {
   modalidade_nome: string | null;
   situacao_nome: string | null;
   link_sistema_origem: string | null;
-  raw_json: ContratacaoPNCP;
 }

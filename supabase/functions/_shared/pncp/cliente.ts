@@ -163,7 +163,6 @@ function mapearItemBuscaTextual(item: ItemBuscaTextualPNCP): LicitacaoColetada {
     modalidade_nome: item.modalidade_licitacao_nome ?? null,
     situacao_nome: item.situacao_nome ?? null,
     link_sistema_origem: linkPncp,
-    raw_json: item as unknown as ContratacaoPNCP,
   };
 }
 
@@ -295,6 +294,5 @@ export function mapearContratacao(item: ContratacaoPNCP): LicitacaoColetada {
     modalidade_nome: item.modalidadeNome ?? null,
     situacao_nome: item.situacaoCompraNome ?? null,
     link_sistema_origem: item.linkSistemaOrigem ?? null,
-    raw_json: item,
   };
 }
