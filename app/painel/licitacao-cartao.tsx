@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AnalisarBotao } from "./analisar-botao";
 import { FavoritoBotao } from "./favorito-botao";
 import { OcultarBotao } from "./ocultar-botao";
 
@@ -87,9 +87,7 @@ export function LicitacaoCartao({
       </p>
       <p style={{ marginTop: 10, display: "flex", gap: 14, flexWrap: "wrap" }}>
         {mostrarAnalise && (
-          <Link href={`/painel/analise?licitacao=${l.id}`}>
-            Analisar com IA →
-          </Link>
+          <AnalisarBotao licitacaoId={l.id} jaFavorita={Boolean(favoritoId)} />
         )}
         {linkPncp && (
           <a href={linkPncp} target="_blank" rel="noreferrer">

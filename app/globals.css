@@ -1609,3 +1609,15 @@ main.container {
   color: var(--texto);
   flex: 1;
 }
+
+/* botão que se comporta como o link "Analisar com IA" */
+.link-analisar {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--primaria);
+}
+.link-analisar:hover { text-decoration: underline; }
+.link-analisar:disabled { opacity: 0.6; cursor: default; }
