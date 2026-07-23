@@ -92,8 +92,13 @@ export default async function PaginaPainel({
       );
     }
     if (q) {
-      const termo = q.replace(/[%\\]/g, "");
-      if (termo) c = c.ilike("objeto_compra", `%${termo}%`);
+      // Remove metacaracteres do ilike e da sintaxe or() do PostgREST.
+      const termo = q.replace(/[%\\,()]/g, "").trim();
+      if (termo) {
+        c = c.or(
+          `objeto_compra.ilike.%${termo}%,orgao_razao_social.ilike.%${termo}%,municipio_nome.ilike.%${termo}%`,
+        );
+      }
     }
     if (soAbertas) {
       c = c.or(
@@ -196,7 +201,7 @@ export default async function PaginaPainel({
             type="text"
             name="q"
             defaultValue={q}
-            placeholder="Buscar no objeto da licitação..."
+            placeholder="Buscar por objeto, órgão ou cidade..."
             aria-label="Buscar"
           />
           <select name="ordem" defaultValue={ordem} aria-label="Ordenar">
