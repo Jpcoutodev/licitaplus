@@ -32,6 +32,11 @@ import type { LicitacaoColetada } from "../_shared/pncp/tipos.ts";
 import { extrairTextoPdfBytes } from "../_shared/pdf.ts";
 import { extrairTextoDocx, pareceZip } from "../_shared/docx.ts";
 import { unzipSync } from "npm:fflate@0.8.2";
+import {
+  clientServico,
+  debitarAnalise,
+  lerAssinatura,
+} from "../_shared/assinatura.ts";
 import { dividirEmTrechos, extrairSumario } from "../_shared/trechos.ts";
 import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
 
@@ -428,19 +433,52 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser();
     if (!user) return respostaJson({ erro: "não autenticado" }, 401);
 
+    // Plano/trial: conta expirada não usa a IA; anexar documento debita 1
+    // análise (o resumo executivo do documento anexado está incluído).
+    const service = clientServico();
+    const assinatura = await lerAssinatura(service, user.id, user.email ?? null);
+    if (assinatura.estado === "expirado") {
+      return respostaJson(
+        { erro: "Seu período de teste terminou. Assine um plano para continuar usando a análise com IA." },
+        402,
+      );
+    }
+
     if (corpo?.acao === "listar_arquivos") {
       return await modoListarArquivos(supabase, corpo);
     }
+
+    const ehAnaliseNova = corpo?.acao === "analisar_arquivo" ||
+      typeof corpo?.pdf_base64 === "string";
+    if (
+      ehAnaliseNova && assinatura.estado !== "admin" &&
+      assinatura.usadas >= assinatura.limite
+    ) {
+      return respostaJson(
+        {
+          erro: assinatura.estado === "trial"
+            ? `Você usou as ${assinatura.limite} análises do teste grátis. Assine um plano para continuar analisando editais.`
+            : `Você atingiu o limite de ${assinatura.limite} análises deste mês no seu plano.`,
+        },
+        402,
+      );
+    }
+
+    let resposta: Response;
     if (corpo?.acao === "analisar_arquivo") {
-      return await modoAnalisarArquivo(supabase, corpo);
+      resposta = await modoAnalisarArquivo(supabase, corpo);
+    } else if (corpo?.acao === "resumo_executivo") {
+      resposta = await modoResumoExecutivo(supabase, corpo);
+    } else if (typeof corpo?.pdf_base64 === "string") {
+      resposta = await modoPdfAnexado(supabase, corpo);
+    } else {
+      resposta = await modoConversa(supabase, corpo, user.id);
     }
-    if (corpo?.acao === "resumo_executivo") {
-      return await modoResumoExecutivo(supabase, corpo);
+
+    if (ehAnaliseNova && resposta.status === 200 && assinatura.estado !== "admin") {
+      await debitarAnalise(service, user.id);
     }
-    if (typeof corpo?.pdf_base64 === "string") {
-      return await modoPdfAnexado(supabase, corpo);
-    }
-    return await modoConversa(supabase, corpo, user.id);
+    return resposta;
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : String(erro);
     console.error(JSON.stringify({ funcao: "analise-ia", erro: mensagem }));

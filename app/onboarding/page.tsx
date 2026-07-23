@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { criarClientNavegador } from "@/lib/supabase/client";
+import {
+  normalizarDocumento,
+  validarCpfCnpj,
+} from "@/lib/validacao/documento";
 import { Logo } from "../logo";
 
 export default function PaginaOnboarding() {
   const roteador = useRouter();
   const [nomeEmpresa, setNomeEmpresa] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [documento, setDocumento] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -26,12 +31,13 @@ export default function PaginaOnboarding() {
       }
       const { data } = await supabase
         .from("contas")
-        .select("nome_empresa, telefone")
+        .select("nome_empresa, telefone, cpf_cnpj")
         .eq("user_id", user.id)
         .maybeSingle();
       if (data) {
         setNomeEmpresa(data.nome_empresa ?? "");
         setTelefone(data.telefone ?? "");
+        setDocumento(data.cpf_cnpj ?? "");
       }
       setCarregando(false);
     }
@@ -44,8 +50,13 @@ export default function PaginaOnboarding() {
 
     const nome = nomeEmpresa.trim();
     const tel = telefone.trim();
+    const doc = normalizarDocumento(documento);
     if (nome.length < 2) {
       setErro("Informe o nome da sua empresa.");
+      return;
+    }
+    if (!validarCpfCnpj(doc)) {
+      setErro("CPF ou CNPJ inválido — confira os números digitados.");
       return;
     }
     if (tel.replace(/\D/g, "").length < 8) {
@@ -66,10 +77,19 @@ export default function PaginaOnboarding() {
           user_id: user.id,
           nome_empresa: nome.slice(0, 160),
           telefone: tel.slice(0, 40),
+          cpf_cnpj: doc,
         },
         { onConflict: "user_id" },
       );
-      if (error) throw new Error(error.message);
+      if (error) {
+        // Documento já usado por outra conta = tentativa de segundo trial.
+        if (error.code === "23505") {
+          throw new Error(
+            "Este CPF/CNPJ já possui uma conta no SentinelaGov. Entre com o email cadastrado ou assine um plano nela.",
+          );
+        }
+        throw new Error(error.message);
+      }
 
       // Próximo passo do onboarding: configurar o perfil de busca; ao salvar
       // lá, o usuário segue para o painel (parâmetro inicio=1).
@@ -117,6 +137,22 @@ export default function PaginaOnboarding() {
                 placeholder="ex.: Alfa Comércio e Serviços Ltda"
                 autoComplete="organization"
               />
+            </div>
+            <div className="campo">
+              <label htmlFor="documento">CNPJ (ou CPF, se ainda não tem empresa)</label>
+              <input
+                id="documento"
+                type="text"
+                required
+                inputMode="numeric"
+                value={documento}
+                onChange={(e) => setDocumento(e.target.value)}
+                placeholder="ex.: 12.345.678/0001-90"
+              />
+              <p className="ajuda">
+                Usado para identificar sua empresa e liberar o teste grátis de
+                14 dias (um teste por CPF/CNPJ).
+              </p>
             </div>
             <div className="campo">
               <label htmlFor="telefone">Telefone (com DDD)</label>

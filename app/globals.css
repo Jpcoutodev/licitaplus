@@ -1560,3 +1560,52 @@ main.container {
   border-color: transparent;
 }
 .paginacao .pag-inativo { color: var(--texto-suave); opacity: 0.45; }
+
+/* banner do teste grátis no painel */
+.banner-trial {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin-bottom: 18px;
+  border-radius: var(--raio);
+  background: var(--primaria-suave);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  font-size: 14px;
+}
+.banner-trial .botao-mini { padding: 7px 14px; font-size: 13px; }
+
+/* página de planos */
+.planos-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+.plano-cartao { display: flex; flex-direction: column; gap: 10px; }
+.plano-destaque { border-color: var(--primaria); box-shadow: var(--sombra-alta); }
+.plano-preco {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--texto);
+  letter-spacing: -1px;
+}
+.plano-preco span {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--texto-suave);
+  letter-spacing: 0;
+}
+.plano-itens {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 14px;
+  color: var(--texto);
+  flex: 1;
+}

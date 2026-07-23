@@ -28,17 +28,45 @@ export default async function LayoutPainel({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Onboarding obrigatório: sem conta (nome da empresa + telefone) preenchida,
+  // Onboarding obrigatório: sem conta (ou sem CPF/CNPJ, para contas antigas),
   // manda concluir antes de usar o painel.
   let nomeEmpresa: string | null = null;
+  let trialDias: number | null = null;
+  let trialAnalises: { usadas: number; limite: number } | null = null;
   if (user) {
     const { data: conta } = await supabase
       .from("contas")
-      .select("nome_empresa")
+      .select("nome_empresa, cpf_cnpj")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (!conta) redirect("/onboarding");
+    if (!conta || !conta.cpf_cnpj) redirect("/onboarding");
     nomeEmpresa = (conta.nome_empresa as string) ?? null;
+
+    // Estado do plano: expirado -> tela de assinatura; trial -> banner.
+    const { data: ass } = await supabase
+      .rpc("minha_assinatura")
+      .maybeSingle<{
+        estado: string;
+        plano: string;
+        trial_fim: string | null;
+        ativo_ate: string | null;
+        analises_usadas: number;
+        analises_limite: number;
+      }>();
+    if (ass?.estado === "expirado") redirect("/assinar");
+    if (ass?.estado === "trial" && ass.trial_fim) {
+      trialDias = Math.max(
+        0,
+        Math.ceil(
+          (new Date(ass.trial_fim as string).getTime() - Date.now()) /
+            (24 * 60 * 60 * 1000),
+        ),
+      );
+      trialAnalises = {
+        usadas: (ass.analises_usadas as number) ?? 0,
+        limite: (ass.analises_limite as number) ?? 10,
+      };
+    }
   }
 
   let ehAdmin = false;
@@ -99,6 +127,19 @@ export default async function LayoutPainel({
         </header>
 
         <main className="container">
+          {trialDias !== null && (
+            <div className="banner-trial">
+              <span>
+                <strong>Teste grátis:</strong> {trialDias}{" "}
+                {trialDias === 1 ? "dia restante" : "dias restantes"}
+                {trialAnalises &&
+                  ` · ${trialAnalises.usadas}/${trialAnalises.limite} análises de IA usadas`}
+              </span>
+              <Link href="/assinar" className="botao botao-mini">
+                Assinar agora
+              </Link>
+            </div>
+          )}
           <InstalarApp />
           {children}
         </main>

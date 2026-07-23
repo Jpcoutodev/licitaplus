@@ -17,6 +17,7 @@ import {
 import { gerarResumo } from "../_shared/notificacao/resumo.ts";
 import { enviarEmail } from "../_shared/notificacao/email.ts";
 import { enviarPushUsuario } from "../_shared/notificacao/push.ts";
+import { lerAssinatura } from "../_shared/assinatura.ts";
 
 /** Limites por execução: cabem no timeout da function; o resto fica para a próxima janela. */
 const MAX_MATCHES_POR_EXECUCAO = 30;
@@ -79,6 +80,17 @@ Deno.serve(async (_req) => {
           supabase,
           matches[0].perfis.user_id,
         );
+
+        // Conta expirada não recebe alertas (os matches ficam aguardando; se
+        // assinar, voltam a ser notificados normalmente).
+        const assinatura = await lerAssinatura(
+          supabase,
+          matches[0].perfis.user_id,
+          email,
+        );
+        if (assinatura.estado === "expirado" || assinatura.estado === "sem_conta") {
+          continue;
+        }
 
         // Gera os resumos item a item; um resumo que falhar fica para a
         // próxima janela sem impedir os demais.
