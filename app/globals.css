@@ -875,46 +875,59 @@ main.container {
   padding: 64px 0;
 }
 .lp-secao-alt {
-  background: var(--superficie);
+  background: linear-gradient(180deg, #f5f8ff 0%, var(--superficie) 100%);
   border-top: 1px solid var(--borda);
   border-bottom: 1px solid var(--borda);
 }
 .lp-secao-titulo {
-  font-size: 30px;
-  letter-spacing: -0.02em;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   text-align: center;
+  color: #0d1626;
 }
 .lp-secao-sub {
   text-align: center;
   color: var(--texto-suave);
-  margin: 8px 0 36px;
+  font-size: 17px;
+  margin: 10px 0 44px;
 }
 
 /* passos */
 .lp-passos {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
+  gap: 22px;
 }
 .lp-passo {
   background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  padding: 24px;
+  border-radius: 16px;
+  padding: 28px 24px;
+  box-shadow: var(--sombra);
+  transition: box-shadow 0.2s ease, transform 0.12s ease, border-color 0.2s ease;
+}
+.lp-passo:hover {
+  box-shadow: var(--sombra-alta);
+  transform: translateY(-3px);
+  border-color: #d3ddf0;
 }
 .lp-passo-num {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--primaria-suave);
-  color: var(--primaria-escura);
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #2563eb, #16a34a);
+  color: #fff;
   font-weight: 800;
-  margin-bottom: 12px;
+  font-size: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
 }
 .lp-passo h3 {
+  font-size: 17px;
   margin-bottom: 6px;
 }
 
@@ -925,23 +938,32 @@ main.container {
   gap: 18px;
 }
 .lp-beneficio {
-  padding: 22px;
-  border-radius: var(--raio);
+  padding: 24px;
+  border-radius: 16px;
   border: 1px solid var(--borda);
-  background: var(--fundo);
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+  transition: box-shadow 0.2s ease, transform 0.12s ease, border-color 0.2s ease;
+}
+.lp-beneficio:hover {
+  box-shadow: var(--sombra-alta);
+  transform: translateY(-3px);
+  border-color: #d3ddf0;
 }
 .lp-beneficio-icone {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--primaria-suave);
-  color: var(--primaria-escura);
-  margin-bottom: 14px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2563eb, #16a34a);
+  color: #fff;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
 }
 .lp-beneficio h3 {
+  font-size: 16.5px;
   margin-bottom: 6px;
 }
 
