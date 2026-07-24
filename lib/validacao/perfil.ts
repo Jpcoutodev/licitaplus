@@ -14,6 +14,11 @@ export function esquemaPerfil() {
 
   return z
     .object({
+      nome: z
+        .string()
+        .trim()
+        .min(1, "dê um nome ao perfil (ex.: Limpeza SP)")
+        .max(60, "nome do perfil longo demais"),
       palavras_chave: z
         .array(
           z

@@ -10,7 +10,7 @@ export default function PaginaConfiguracoes() {
   const [salvandoSenha, setSalvandoSenha] = useState(false);
   const [msgSenha, setMsgSenha] = useState<{ erro?: string; ok?: string }>({});
 
-  const [perfilId, setPerfilId] = useState<string | null>(null);
+  const [qtdPerfis, setQtdPerfis] = useState(0);
   const [alertasAtivos, setAlertasAtivos] = useState<boolean | null>(null);
   const [msgAlertas, setMsgAlertas] = useState<string | null>(null);
 
@@ -22,14 +22,13 @@ export default function PaginaConfiguracoes() {
       } = await supabase.auth.getUser();
       setEmail(user?.email ?? "");
 
-      const { data: perfil } = await supabase
+      const { data: perfis } = await supabase
         .from("perfis")
-        .select("id, ativo")
-        .limit(1)
-        .maybeSingle();
-      if (perfil) {
-        setPerfilId(perfil.id);
-        setAlertasAtivos(perfil.ativo);
+        .select("id, ativo");
+      const lista = perfis ?? [];
+      setQtdPerfis(lista.length);
+      if (lista.length > 0) {
+        setAlertasAtivos(lista.some((p) => p.ativo));
       }
     }
     void carregar();
@@ -55,24 +54,29 @@ export default function PaginaConfiguracoes() {
   }
 
   async function alternarAlertas() {
-    if (!perfilId || alertasAtivos === null) return;
+    if (qtdPerfis === 0 || alertasAtivos === null) return;
     const novoValor = !alertasAtivos;
     setAlertasAtivos(novoValor);
     setMsgAlertas(null);
 
     const supabase = criarClientNavegador();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    // Vale para TODOS os perfis do usuário (pausa/reativação geral).
     const { error } = await supabase
       .from("perfis")
       .update({ ativo: novoValor })
-      .eq("id", perfilId);
+      .eq("user_id", user.id);
     if (error) {
       setAlertasAtivos(!novoValor);
       setMsgAlertas(`Não foi possível salvar: ${error.message}`);
     } else {
       setMsgAlertas(
         novoValor
-          ? "Alertas reativados — seu perfil volta a ser monitorado."
-          : "Alertas pausados — você não receberá emails até reativar.",
+          ? "Alertas reativados — seus perfis voltam a ser monitorados."
+          : "Alertas pausados em todos os perfis — você não receberá emails até reativar.",
       );
     }
   }
@@ -104,8 +108,10 @@ export default function PaginaConfiguracoes() {
           <>
             <p className="texto-suave" style={{ marginTop: 6 }}>
               {alertasAtivos
-                ? "Seu perfil está ativo: novas licitações compatíveis chegam por email."
-                : "Alertas pausados: o perfil não está sendo monitorado."}
+                ? qtdPerfis > 1
+                  ? "Seus perfis estão ativos: novas licitações compatíveis chegam por email."
+                  : "Seu perfil está ativo: novas licitações compatíveis chegam por email."
+                : "Alertas pausados: nenhum perfil está sendo monitorado."}
             </p>
             <p style={{ marginTop: 12 }}>
               <button
