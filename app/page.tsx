@@ -250,35 +250,37 @@ export default function PaginaInicial() {
         </section>
 
         {/* Como funciona */}
-        <section className="lp-secao container">
-          <h2 className="lp-secao-titulo">Como funciona</h2>
-          <p className="lp-secao-sub">
-            Do cadastro ao primeiro alerta em poucos minutos.
-          </p>
-          <div className="lp-passos">
-            <div className="lp-passo">
-              <span className="lp-passo-num">1</span>
-              <h3>Diga o que você vende</h3>
-              <p className="texto-suave">
-                Informe suas palavras-chave e onde sua empresa atua. Leva menos
-                de dois minutos.
-              </p>
-            </div>
-            <div className="lp-passo">
-              <span className="lp-passo-num">2</span>
-              <h3>Encontramos as oportunidades</h3>
-              <p className="texto-suave">
-                Nosso sistema vasculha as compras públicas várias vezes ao dia e
-                separa só o que combina com você.
-              </p>
-            </div>
-            <div className="lp-passo">
-              <span className="lp-passo-num">3</span>
-              <h3>Você recebe e decide com a IA</h3>
-              <p className="texto-suave">
-                Chega o alerta com resumo claro, e a IA ajuda a analisar o
-                edital e decidir se vale participar.
-              </p>
+        <section className="lp-secao-passos">
+          <div className="container">
+            <h2 className="lp-secao-titulo lp-titulo-claro">Como funciona</h2>
+            <p className="lp-secao-sub lp-sub-claro">
+              Do cadastro ao primeiro alerta em poucos minutos.
+            </p>
+            <div className="lp-passos">
+              <div className="lp-passo">
+                <span className="lp-passo-num">1</span>
+                <h3>Diga o que você vende</h3>
+                <p>
+                  Informe suas palavras-chave e onde sua empresa atua. Leva
+                  menos de dois minutos.
+                </p>
+              </div>
+              <div className="lp-passo">
+                <span className="lp-passo-num">2</span>
+                <h3>Encontramos as oportunidades</h3>
+                <p>
+                  Nosso sistema vasculha as compras públicas várias vezes ao dia
+                  e separa só o que combina com você.
+                </p>
+              </div>
+              <div className="lp-passo">
+                <span className="lp-passo-num">3</span>
+                <h3>Você recebe e decide com a IA</h3>
+                <p>
+                  Chega o alerta com resumo claro, e a IA ajuda a analisar o
+                  edital e decidir se vale participar.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -293,10 +295,12 @@ export default function PaginaInicial() {
             <div className="lp-beneficios">
               {BENEFICIOS.map((b) => (
                 <div className="lp-beneficio" key={b.titulo}>
-                  <div className="lp-beneficio-icone">
-                    <IconeBeneficio>{b.icone}</IconeBeneficio>
+                  <div className="lp-beneficio-cabecalho">
+                    <div className="lp-beneficio-icone">
+                      <IconeBeneficio>{b.icone}</IconeBeneficio>
+                    </div>
+                    <h3>{b.titulo}</h3>
                   </div>
-                  <h3>{b.titulo}</h3>
                   <p className="texto-suave">{b.texto}</p>
                 </div>
               ))}
