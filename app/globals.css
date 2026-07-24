@@ -1077,6 +1077,24 @@ main.container {
   .lp-hero { padding: 56px 0 52px; }
 }
 
+/* topo da landing no celular: logo (ícone) + Entrar + Teste grátis */
+@media (max-width: 640px) {
+  .lp-topo-linha { height: 58px; }
+  .lp-topo .marca-nome { display: none; }
+  .lp-nav { gap: 12px; }
+  .lp-nav-sec { display: none; }
+  .lp-nav a:not(.botao) { font-size: 14px; }
+  .lp-nav .botao { padding: 9px 15px; font-size: 13.5px; }
+
+  .lp-hero { padding: 40px 0 44px; }
+  .lp-titulo { font-size: 31px; }
+  .lp-selo { margin-bottom: 18px; }
+  .lp-cta-linha .botao-grande { flex: 1; justify-content: center; }
+  .lp-secao-titulo { font-size: 27px; }
+  .lp-consultoria { padding: 22px; }
+  .lp-consultoria .botao-grande { width: 100%; justify-content: center; }
+}
+
 /* =========================================================
    Blog
    ========================================================= */

@@ -179,8 +179,12 @@ export default function PaginaInicial() {
             <Logo />
           </Link>
           <nav className="lp-nav">
-            <a href="#planos">Planos</a>
-            <Link href="/blog">Blog</Link>
+            <a href="#planos" className="lp-nav-sec">
+              Planos
+            </a>
+            <Link href="/blog" className="lp-nav-sec">
+              Blog
+            </Link>
             <Link href="/login">Entrar</Link>
             <Link href="/login" className="botao">
               Teste grátis
