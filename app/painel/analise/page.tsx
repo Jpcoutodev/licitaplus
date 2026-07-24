@@ -622,9 +622,17 @@ function ChatAnalise() {
               <button
                 type="button"
                 className="botao-fantasma"
+                disabled={extraindo || analisandoSequencial !== null}
+                onClick={() => seletorArquivo.current?.click()}
+              >
+                {extraindo ? "Lendo arquivo..." : "+ Anexar outro"}
+              </button>
+              <button
+                type="button"
+                className="botao-fantasma"
                 onClick={removerDocumento}
               >
-                Remover
+                Remover todos
               </button>
             </p>
           ) : analisandoSequencial !== null ? (

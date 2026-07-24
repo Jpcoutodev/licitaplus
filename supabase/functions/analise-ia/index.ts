@@ -1040,9 +1040,14 @@ async function validarConversa(
   return data ? conversaId : null;
 }
 
+/** Teto do contexto combinado quando vários documentos são anexados. */
+const MAX_TEXTO_COMBINADO = 3_000_000;
+
 /**
- * Grava o documento extraído na conversa; se for grande, fatia em trechos
- * indexados para a recuperação por pergunta.
+ * Grava o documento extraído na conversa. Documentos se ACUMULAM: um novo
+ * anexo é acrescentado ao existente com cabeçalho "===== nome =====" (mesmo
+ * formato dos pacotes .zip) — a conversa pode ter edital + TR + anexos juntos.
+ * Se o conjunto for grande, fatia em trechos indexados para o RAG.
  */
 async function gravarDocumentoNaConversa(
   supabase: ClienteSupabase,
@@ -1056,6 +1061,24 @@ async function gravarDocumentoNaConversa(
   caracteres_totais: number;
   modo: "inteiro" | "trechos";
 }> {
+  const { data: atual } = await supabase
+    .from("conversas_ia")
+    .select("documento_nome, documento_texto")
+    .eq("id", conversaId)
+    .maybeSingle();
+
+  if (atual?.documento_texto && atual?.documento_nome) {
+    const textoAntigo = atual.documento_texto as string;
+    const nomeAntigo = atual.documento_nome as string;
+    // Garante cabeçalho no conteúdo antigo (anexos de zip já vêm com um).
+    const antigoComCabecalho = textoAntigo.startsWith("=====")
+      ? textoAntigo
+      : `===== ${nomeAntigo} =====\n\n${textoAntigo}`;
+    texto = `${antigoComCabecalho}\n\n===== ${nome} =====\n\n${texto}`
+      .slice(0, MAX_TEXTO_COMBINADO);
+    nome = `${nomeAntigo} + ${nome}`.slice(0, 160);
+  }
+
   const { error: erroConversa } = await supabase
     .from("conversas_ia")
     .update({
@@ -1284,8 +1307,9 @@ diga a ele, em uma frase, para anexar usando um desses botões — prefira
 indicar o arquivo certo da lista quando ele existir. Se o usuário perguntar se
 pode enviar documentos, confirme e explique esses dois botões.
 Só existem esses dois recursos de anexo: não invente ícone de clipe, upload em
-partes nem colar texto. Cada conversa mantém UM documento por vez (anexar
-outro substitui o atual).`;
+partes nem colar texto. Os documentos anexados se ACUMULAM no contexto da
+conversa (edital + TR + anexos, separados por cabeçalhos "===== nome ====="
+no texto que você recebe); o botão Remover limpa todos de uma vez.`;
 
 function formatarArquivos(arquivos: ArquivoLista[]): string {
   return arquivos
