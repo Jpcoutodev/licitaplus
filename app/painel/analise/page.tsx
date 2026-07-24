@@ -90,6 +90,8 @@ function ChatAnalise() {
   >(null);
   const seletorArquivo = useRef<HTMLInputElement>(null);
   const fimDoChat = useRef<HTMLDivElement>(null);
+  /** Licitação para a qual o anexo automático já foi tentado nesta sessão. */
+  const autoAnexo = useRef<string | null>(null);
 
   useEffect(() => {
     async function carregarFavoritas() {
@@ -190,6 +192,27 @@ function ChatAnalise() {
   useEffect(() => {
     fimDoChat.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens, pensando]);
+
+  // Ao selecionar uma licitação cuja conversa ainda não tem documento, anexa
+  // o edital automaticamente (uma tentativa por seleção; quem remover o
+  // documento não o vê voltar sozinho). Prefere o arquivo do tipo "Edital".
+  useEffect(() => {
+    if (
+      !licitacaoId || carregandoConversa || carregandoArquivos ||
+      documento || extraindo || analisandoSequencial !== null ||
+      arquivos.length === 0 || autoAnexo.current === licitacaoId
+    ) {
+      return;
+    }
+    autoAnexo.current = licitacaoId;
+    const edital = arquivos.find(
+      (a) =>
+        /edital/i.test(a.tipoDocumentoNome ?? "") ||
+        /edital/i.test(a.titulo ?? ""),
+    ) ?? arquivos[0];
+    void analisarArquivo(edital);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [licitacaoId, carregandoConversa, carregandoArquivos, documento, arquivos]);
 
   /** Garante a linha da conversa no banco e retorna o id. */
   async function garantirConversa(): Promise<string> {
@@ -328,6 +351,8 @@ function ChatAnalise() {
   }
 
   async function removerDocumento() {
+    // Remoção manual: o anexo automático não deve trazer o documento de volta.
+    autoAnexo.current = licitacaoId;
     setDocumento(null);
     if (conversaId) {
       const supabase = criarClientNavegador();
@@ -601,6 +626,10 @@ function ChatAnalise() {
               >
                 Remover
               </button>
+            </p>
+          ) : analisandoSequencial !== null ? (
+            <p className="ajuda">
+              📎 Anexando o edital ao contexto da conversa automaticamente...
             </p>
           ) : (
             <p>
