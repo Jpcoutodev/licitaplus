@@ -48,6 +48,19 @@ const MAX_BYTES_PDF = 6 * 1024 * 1024;
 /** A IA recebe só o fim da conversa; o histórico completo fica no banco. */
 const MAX_MENSAGENS_PARA_IA = 16;
 
+/** Mensagem do usuário que precede um resumo executivo (marcador de fluxo). */
+const MARCADOR_RESUMO = "📋 Gerar resumo executivo do edital anexado";
+
+/** A resposta é um resumo executivo? (marcador anterior é o sinal confiável;
+ *  o texto é reforço para resumos antigos ou gerados de outra forma.) */
+function ehResumoExecutivo(
+  mensagens: MensagemChat[],
+  indice: number,
+): boolean {
+  if (mensagens[indice - 1]?.content === MARCADOR_RESUMO) return true;
+  return /resumo executivo/i.test(mensagens[indice].content.slice(0, 300));
+}
+
 export default function PaginaAnalise() {
   return (
     <Suspense fallback={<p className="texto-suave">Carregando...</p>}>
@@ -399,7 +412,7 @@ function ChatAnalise() {
     setErro(null);
     const marcador: MensagemChat = {
       role: "user",
-      content: "📋 Gerar resumo executivo do edital anexado",
+      content: MARCADOR_RESUMO,
     };
     const base = [...mensagens, marcador];
     setMensagens(base);
@@ -709,7 +722,7 @@ function ChatAnalise() {
                   >
                     {mensagem.content}
                   </ReactMarkdown>
-                  {/^\s*#\s*Resumo Executivo/i.test(mensagem.content) && (
+                  {ehResumoExecutivo(mensagens, indice) && (
                     <p style={{ marginTop: 10 }}>
                       <button
                         type="button"
