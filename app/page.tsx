@@ -195,10 +195,12 @@ export default function PaginaInicial() {
           <div className="container lp-hero-grade">
             <div>
               <span className="lp-selo">
+                <span className="lp-selo-dot" aria-hidden />
                 14 dias grátis · sem cartão de crédito
               </span>
               <h1 className="lp-titulo">
-                As licitações certas para a sua empresa, todo dia no seu email
+                <span className="lp-grad">As licitações certas</span> para a sua
+                empresa, todo dia no seu email
               </h1>
               <p className="lp-subtitulo">
                 Pare de perder oportunidades de vender para o governo. O
