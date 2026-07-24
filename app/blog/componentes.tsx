@@ -48,6 +48,31 @@ export function CtaTeste({
   );
 }
 
+/** CTA de conversão para a consultoria (serviço full-service). */
+export function CtaConsultoria({
+  titulo = "Prefere que um especialista cuide de tudo?",
+  texto = "Nossa consultoria acompanha todas as etapas da licitação — análise do edital, habilitação, proposta e recursos. Valor sob consulta.",
+  rotulo = "Falar com um consultor",
+}: {
+  titulo?: string;
+  texto?: string;
+  rotulo?: string;
+}) {
+  return (
+    <div className="artigo-cta">
+      <h3>{titulo}</h3>
+      <p>{texto}</p>
+      <Link
+        href="/consultoria"
+        className="botao botao-grande botao-claro"
+        data-cta-consultoria
+      >
+        {rotulo}
+      </Link>
+    </div>
+  );
+}
+
 /** Bloco de FAQ visível (casa com o FAQPage JSON-LD). */
 export function Faq({ itens }: { itens: ItemFaq[] }) {
   return (
