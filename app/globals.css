@@ -1651,3 +1651,19 @@ main.container {
   transform: none;
 }
 .botao-analisar svg { flex-shrink: 0; }
+
+/* barra de uso (análises do plano) */
+.barra-uso {
+  height: 9px;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.barra-uso > span {
+  display: block;
+  height: 100%;
+  background: var(--gradiente-btn);
+  border-radius: 999px;
+  transition: width 0.3s;
+}

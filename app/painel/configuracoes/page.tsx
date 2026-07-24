@@ -99,6 +99,18 @@ export default function PaginaConfiguracoes() {
       </div>
 
       <div className="cartao">
+        <h3>Assinatura</h3>
+        <p className="texto-suave" style={{ marginTop: 6 }}>
+          Plano atual, uso das análises de IA, perfis e cobrança.
+        </p>
+        <p style={{ marginTop: 12 }}>
+          <a href="/painel/assinatura" className="botao botao-secundario">
+            Ver minha assinatura
+          </a>
+        </p>
+      </div>
+
+      <div className="cartao">
         <h3>Alertas por email</h3>
         {alertasAtivos === null ? (
           <p className="texto-suave" style={{ marginTop: 6 }}>
