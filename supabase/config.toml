@@ -416,3 +416,7 @@ enabled = true
 # Webhook do Stripe: chamado pela Stripe, sem JWT do Supabase.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Formulário público de consultoria: sem login.
+[functions.consultoria]
+verify_jwt = false

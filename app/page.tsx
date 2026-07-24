@@ -369,6 +369,23 @@ export default function PaginaInicial() {
               </Link>
             </div>
           </div>
+
+          {/* Consultoria (serviço sob consulta) */}
+          <div className="lp-consultoria">
+            <div className="lp-consultoria-texto">
+              <span className="etiqueta etiqueta-nova">Consultoria</span>
+              <h3>Prefere que um especialista cuide de tudo?</h3>
+              <p className="texto-suave">
+                Nossa consultoria acompanha todas as etapas da licitação —
+                análise do edital, habilitação, elaboração e envio da proposta e
+                recursos. Você foca no seu negócio; a gente cuida do processo.
+              </p>
+              <strong className="lp-consultoria-preco">Valor sob consulta</strong>
+            </div>
+            <Link href="/consultoria" className="botao botao-grande">
+              Falar com um consultor
+            </Link>
+          </div>
         </section>
 
         {/* FAQ */}

@@ -1753,3 +1753,55 @@ main.container {
   color: var(--texto-suave);
   text-align: center;
 }
+
+/* faixa de consultoria (serviço sob consulta) na landing */
+.lp-consultoria {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding: 26px 28px;
+  border-radius: 16px;
+  border: 1px solid #dbe4ff;
+  background:
+    radial-gradient(500px 200px at 100% 0%, rgba(22, 163, 74, 0.1), transparent 60%),
+    linear-gradient(120deg, #f5f8ff, #ffffff);
+  box-shadow: var(--sombra);
+}
+.lp-consultoria-texto { max-width: 620px; }
+.lp-consultoria-texto h3 { font-size: 20px; margin: 10px 0 6px; color: #0d1626; }
+.lp-consultoria-preco {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 15px;
+  color: var(--primaria-escura);
+}
+.lp-consultoria .botao-grande { flex-shrink: 0; }
+
+/* toggle de status do lead de consultoria (admin) */
+.lead-toggle {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lead-toggle-ok { background: #dcfce7; color: var(--verde-escuro); }
+.lead-toggle:disabled { opacity: 0.6; cursor: default; }
+.lead-excluir {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--texto-suave);
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.lead-excluir:hover { color: #b91c1c; background: #fef2f2; }
+.lead-excluir:disabled { opacity: 0.5; cursor: default; }

@@ -26,6 +26,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.3,
     },
     {
+      url: `${urlSite}/consultoria`,
+      lastModified: agora,
+      changeFrequency: "yearly",
+      priority: 0.4,
+    },
+    {
       url: `${urlSite}/termos`,
       lastModified: agora,
       changeFrequency: "yearly",

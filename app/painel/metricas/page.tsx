@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { criarClientServidor } from "@/lib/supabase/server";
+import { LeadToggle } from "./lead-toggle";
 
 interface LinhaResumo {
   caminho: string;
@@ -78,6 +79,24 @@ export default async function PaginaMetricas() {
   const empresaPorUsuario = new Map(
     (contas ?? []).map((c) => [c.user_id as string, c.nome_empresa as string]),
   );
+
+  // Leads de consultoria (RLS: só admin).
+  const { data: leadsData } = await supabase
+    .from("consultoria_leads")
+    .select("id, nome, empresa, telefone, email, mensagem, atendido, created_at")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const leads = (leadsData ?? []) as Array<{
+    id: string;
+    nome: string;
+    empresa: string | null;
+    telefone: string;
+    email: string | null;
+    mensagem: string | null;
+    atendido: boolean;
+    created_at: string;
+  }>;
+  const leadsPendentes = leads.filter((l) => !l.atendido).length;
 
   if (error) {
     return (
@@ -219,6 +238,69 @@ export default async function PaginaMetricas() {
                     {e.duracao_ms != null
                       ? `${(e.duracao_ms / 1000).toFixed(1)}s`
                       : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="cabecalho-pagina" style={{ marginTop: 30 }}>
+        <div>
+          <h2>Pedidos de consultoria</h2>
+          <p className="texto-suave sem-margem">
+            {leadsPendentes > 0
+              ? `${leadsPendentes} pendente(s) de contato.`
+              : "Leads recebidos pelo formulário de consultoria."}
+          </p>
+        </div>
+      </div>
+
+      {leads.length === 0 ? (
+        <div className="cartao">
+          <p className="texto-suave sem-margem">Nenhum pedido de consultoria ainda.</p>
+        </div>
+      ) : (
+        <div className="cartao" style={{ overflowX: "auto" }}>
+          <table className="tabela-metricas">
+            <thead>
+              <tr>
+                <th>Quando</th>
+                <th>Nome</th>
+                <th>Empresa</th>
+                <th>Telefone</th>
+                <th>Mensagem</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map((l) => (
+                <tr key={l.id}>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {new Date(l.created_at).toLocaleString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td>{l.nome}</td>
+                  <td>{l.empresa ?? "—"}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{l.telefone}</td>
+                  <td
+                    style={{
+                      maxWidth: 320,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={`${l.mensagem ?? ""}${l.email ? ` · ${l.email}` : ""}`}
+                  >
+                    {l.mensagem ?? (l.email ? l.email : "—")}
+                  </td>
+                  <td>
+                    <LeadToggle id={l.id} inicial={l.atendido} />
                   </td>
                 </tr>
               ))}
