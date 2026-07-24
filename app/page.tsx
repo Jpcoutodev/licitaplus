@@ -411,8 +411,9 @@ export default function PaginaInicial() {
           </div>
           <nav className="lp-rodape-nav">
             <Link href="/blog">Blog</Link>
+            <Link href="/privacidade">Privacidade</Link>
+            <Link href="/termos">Termos</Link>
             <Link href="/login">Entrar</Link>
-            <Link href="/login">Criar conta</Link>
           </nav>
         </div>
         <div className="container lp-rodape-copy texto-suave">

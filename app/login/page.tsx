@@ -108,6 +108,20 @@ export default function PaginaLogin() {
               ? "Entrar"
               : "Criar conta"}
         </button>
+
+        {modo === "cadastrar" && (
+          <p className="ajuda" style={{ marginTop: 12 }}>
+            Ao criar conta, você concorda com os{" "}
+            <Link href="/termos" target="_blank">
+              Termos de Uso
+            </Link>{" "}
+            e a{" "}
+            <Link href="/privacidade" target="_blank">
+              Política de Privacidade
+            </Link>
+            .
+          </p>
+        )}
       </form>
 
       <p style={{ marginTop: 16 }}>

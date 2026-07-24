@@ -19,6 +19,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.5,
     },
+    {
+      url: `${urlSite}/privacidade`,
+      lastModified: agora,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${urlSite}/termos`,
+      lastModified: agora,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
   ];
 
   const artigos: MetadataRoute.Sitemap = POSTS.map((post) => ({
