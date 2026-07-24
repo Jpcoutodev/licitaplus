@@ -252,8 +252,8 @@ export default function PaginaInicial() {
         {/* Como funciona */}
         <section className="lp-secao-passos">
           <div className="container">
-            <h2 className="lp-secao-titulo lp-titulo-claro">Como funciona</h2>
-            <p className="lp-secao-sub lp-sub-claro">
+            <h2 className="lp-secao-titulo">Como funciona</h2>
+            <p className="lp-secao-sub">
               Do cadastro ao primeiro alerta em poucos minutos.
             </p>
             <div className="lp-passos">

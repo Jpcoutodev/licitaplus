@@ -893,78 +893,43 @@ main.container {
   margin: 10px 0 44px;
 }
 
-/* passos */
+/* "Como funciona": passos claros e arejados — sem caixa, número em destaque
+   (fluxo, distinto dos cartões de benefício, mas na mesma paleta) */
+.lp-secao-passos {
+  padding: 60px 0 64px;
+}
 .lp-passos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 28px;
 }
 .lp-passo {
-  background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-radius: 16px;
-  padding: 28px 24px;
-  box-shadow: var(--sombra);
-  transition: box-shadow 0.2s ease, transform 0.12s ease, border-color 0.2s ease;
-}
-.lp-passo:hover {
-  box-shadow: var(--sombra-alta);
-  transform: translateY(-3px);
-  border-color: #d3ddf0;
+  text-align: center;
+  padding: 4px 10px;
 }
 .lp-passo-num {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
   background: linear-gradient(135deg, #2563eb, #16a34a);
   color: #fff;
   font-weight: 800;
-  font-size: 18px;
+  font-size: 21px;
   margin-bottom: 16px;
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28);
 }
 .lp-passo h3 {
   font-size: 17px;
   margin-bottom: 6px;
+  color: #0d1626;
 }
-
-/* "Como funciona": faixa escura (contraste com as demais seções claras) */
-.lp-secao-passos {
-  position: relative;
-  overflow: hidden;
-  padding: 76px 0;
-  color: #eaf0fb;
-  background:
-    radial-gradient(680px 320px at 12% -12%, rgba(37, 99, 235, 0.3), transparent 60%),
-    radial-gradient(600px 360px at 92% 118%, rgba(22, 163, 74, 0.22), transparent 55%),
-    linear-gradient(180deg, #0d1626 0%, #0a1120 100%);
-}
-.lp-titulo-claro { color: #fff; }
-.lp-sub-claro { color: rgba(234, 240, 251, 0.7); }
-.lp-secao-passos .lp-passo {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  box-shadow: none;
-  backdrop-filter: blur(6px);
-}
-.lp-secao-passos .lp-passo:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: none;
-  transform: translateY(-3px);
-}
-.lp-secao-passos .lp-passo-num {
-  border-radius: 50%;
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
-}
-.lp-secao-passos .lp-passo h3 { color: #fff; }
-.lp-secao-passos .lp-passo p {
-  color: rgba(234, 240, 251, 0.72);
-  font-size: 14.5px;
+.lp-passo p {
+  color: var(--texto-suave);
+  max-width: 300px;
+  margin: 0 auto;
 }
 
 /* benefícios */
