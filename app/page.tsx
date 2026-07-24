@@ -128,12 +128,31 @@ const jsonLd = {
       name: "SentinelaGov",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "BRL",
-        description: "Teste grátis por 14 dias, sem cartão de crédito.",
-      },
+      offers: [
+        {
+          "@type": "Offer",
+          name: "Teste grátis",
+          price: "0",
+          priceCurrency: "BRL",
+          description: "Teste grátis por 14 dias, sem cartão de crédito.",
+        },
+        {
+          "@type": "Offer",
+          name: "Essencial",
+          price: "97.00",
+          priceCurrency: "BRL",
+          description:
+            "1 perfil de busca, 30 análises de IA por mês, alertas por email e push.",
+        },
+        {
+          "@type": "Offer",
+          name: "Profissional",
+          price: "197.00",
+          priceCurrency: "BRL",
+          description:
+            "3 perfis de busca, 100 análises de IA por mês, alertas por email e push.",
+        },
+      ],
     },
     {
       "@type": "FAQPage",
@@ -160,6 +179,7 @@ export default function PaginaInicial() {
             <Logo />
           </Link>
           <nav className="lp-nav">
+            <a href="#planos">Planos</a>
             <Link href="/blog">Blog</Link>
             <Link href="/login">Entrar</Link>
             <Link href="/login" className="botao">
@@ -278,6 +298,69 @@ export default function PaginaInicial() {
                   <p className="texto-suave">{b.texto}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Planos */}
+        <section className="lp-secao container" id="planos">
+          <h2 className="lp-secao-titulo">Planos simples, sem surpresa</h2>
+          <p className="lp-secao-sub">
+            Comece grátis por 14 dias — sem cartão de crédito. Cancele quando
+            quiser.
+          </p>
+          <div className="planos-grade" style={{ marginTop: 26 }}>
+            <div className="cartao plano-cartao">
+              <h3>Teste grátis</h3>
+              <p className="plano-preco">
+                R$ 0<span> · 14 dias</span>
+              </p>
+              <ul className="plano-itens">
+                <li>✔ 1 perfil de busca</li>
+                <li>✔ 10 análises de IA no período</li>
+                <li>✔ Alertas por email e push</li>
+                <li>✔ Resumo executivo do edital</li>
+                <li>✔ Sem cartão de crédito</li>
+              </ul>
+              <Link href="/login" className="botao botao-secundario" style={{ justifyContent: "center" }}>
+                Começar grátis
+              </Link>
+            </div>
+
+            <div className="cartao plano-cartao plano-destaque">
+              <span className="etiqueta etiqueta-nova">Mais escolhido</span>
+              <h3>Essencial</h3>
+              <p className="plano-preco">
+                R$ 97<span>/mês</span>
+              </p>
+              <ul className="plano-itens">
+                <li>✔ 1 perfil de busca (estados ou Brasil inteiro)</li>
+                <li>✔ 30 análises de IA por mês</li>
+                <li>✔ Alertas por email e push</li>
+                <li>✔ Resumo executivo do edital</li>
+                <li>✔ Chat com IA sobre o edital</li>
+              </ul>
+              <Link href="/login" className="botao" style={{ justifyContent: "center" }}>
+                Assinar Essencial
+              </Link>
+            </div>
+
+            <div className="cartao plano-cartao">
+              <h3>Profissional</h3>
+              <p className="plano-preco">
+                R$ 197<span>/mês</span>
+              </p>
+              <ul className="plano-itens">
+                <li>✔ 3 perfis de busca independentes</li>
+                <li>✔ 100 análises de IA por mês</li>
+                <li>✔ Alertas por email e push</li>
+                <li>✔ Resumo executivo do edital</li>
+                <li>✔ Chat com IA sobre o edital</li>
+                <li>✔ Suporte prioritário</li>
+              </ul>
+              <Link href="/login" className="botao botao-secundario" style={{ justifyContent: "center" }}>
+                Assinar Profissional
+              </Link>
             </div>
           </div>
         </section>
