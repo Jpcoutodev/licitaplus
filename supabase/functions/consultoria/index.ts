@@ -7,6 +7,47 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { CABECALHOS_CORS, respostaPreflight } from "../_shared/cors.ts";
+import { enviarEmail } from "../_shared/notificacao/email.ts";
+
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** Avisa o time por email a cada novo pedido (best-effort). */
+async function avisarPorEmail(lead: {
+  nome: string;
+  empresa: string;
+  telefone: string;
+  email: string;
+  mensagem: string;
+}): Promise<void> {
+  const destino = Deno.env.get("LEADS_EMAIL");
+  if (!destino) return;
+  const linhas = [
+    ["Nome", lead.nome],
+    ["Empresa", lead.empresa || "—"],
+    ["Telefone", lead.telefone],
+    ["Email", lead.email || "—"],
+    ["Mensagem", lead.mensagem || "—"],
+  ]
+    .map(
+      ([k, v]) =>
+        `<p style="margin:4px 0"><strong>${k}:</strong> ${esc(String(v))}</p>`,
+    )
+    .join("");
+  try {
+    await enviarEmail(
+      destino,
+      `Novo pedido de consultoria — ${lead.nome}`,
+      `<h2>Novo pedido de consultoria</h2>${linhas}<p style="margin-top:14px;color:#6b7280">Veja e responda em Painel → Métricas → Pedidos de consultoria.</p>`,
+    );
+  } catch {
+    // e-mail é complementar; o lead já está salvo
+  }
+}
 
 function json(corpo: unknown, status = 200): Response {
   return new Response(JSON.stringify(corpo), {
@@ -52,6 +93,7 @@ Deno.serve(async (req) => {
     });
     if (error) return json({ erro: error.message }, 500);
 
+    await avisarPorEmail({ nome, empresa, telefone, email, mensagem });
     return json({ ok: true });
   } catch (erro) {
     return json(
