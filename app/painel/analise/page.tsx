@@ -759,6 +759,11 @@ function ChatAnalise() {
             Enviar
           </button>
         </form>
+
+        <p className="aviso-ia">
+          A IA pode cometer erros e omitir informações. Confira sempre o edital
+          oficial no PNCP antes de decidir participar.
+        </p>
       </div>
     </>
   );
