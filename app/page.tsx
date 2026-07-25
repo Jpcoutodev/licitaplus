@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "./logo";
+import { Revelar } from "./revelar";
 
 const FAQ = [
   {
@@ -173,6 +174,11 @@ export default function PaginaInicial() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
+      {/* sem JavaScript não há como observar a rolagem: mostra tudo de uma vez */}
+      <noscript>
+        <style>{".revelar,.revelar-lista>*{opacity:1;transform:none}"}</style>
+      </noscript>
+
       <header className="lp-topo">
         <div className="container lp-topo-linha">
           <Link href="/" aria-label="SentinelaGov">
@@ -196,23 +202,32 @@ export default function PaginaInicial() {
       <main>
         {/* Hero */}
         <section className="lp-hero">
+          {/* camadas de ambiente: malha técnica, piso em perspectiva e orbes */}
+          <div className="lp-fx" aria-hidden>
+            <div className="lp-malha" />
+            <div className="lp-piso" />
+            <span className="lp-orbe lp-orbe-a" />
+            <span className="lp-orbe lp-orbe-b" />
+            <span className="lp-orbe lp-orbe-c" />
+          </div>
+
           <div className="container lp-hero-grade">
-            <div>
-              <span className="lp-selo">
+            <div className="lp-hero-texto">
+              <span className="lp-selo lp-entra" style={{ "--atraso": "0ms" } as React.CSSProperties}>
                 <span className="lp-selo-dot" aria-hidden />
                 14 dias grátis · sem cartão de crédito
               </span>
-              <h1 className="lp-titulo">
+              <h1 className="lp-titulo lp-entra" style={{ "--atraso": "80ms" } as React.CSSProperties}>
                 <span className="lp-grad">As licitações certas</span> para a sua
                 empresa, todo dia no seu email
               </h1>
-              <p className="lp-subtitulo">
+              <p className="lp-subtitulo lp-entra" style={{ "--atraso": "160ms" } as React.CSSProperties}>
                 Pare de perder oportunidades de vender para o governo. O
                 SentinelaGov encontra as licitações que combinam com o seu
                 negócio, resume em linguagem simples e ajuda você a decidir com
                 inteligência artificial.
               </p>
-              <div className="lp-cta-linha">
+              <div className="lp-cta-linha lp-entra" style={{ "--atraso": "240ms" } as React.CSSProperties}>
                 <Link href="/login" className="botao botao-grande">
                   Começar teste grátis
                 </Link>
@@ -223,30 +238,62 @@ export default function PaginaInicial() {
                   Entrar
                 </Link>
               </div>
-              <p className="lp-confianca">
+              <p className="lp-confianca lp-entra" style={{ "--atraso": "320ms" } as React.CSSProperties}>
                 Sem cartão de crédito · Cancele quando quiser
               </p>
             </div>
 
             {/* Mockup do produto (feito em CSS, sem screenshot) */}
-            <div className="lp-mockup" aria-hidden>
-              <div className="lp-mockup-cartao">
-                <div className="lp-mockup-topo">
-                  <span className="etiqueta etiqueta-nova">novo</span>
-                  <span className="lp-mockup-estrela">★</span>
+            <div className="lp-palco lp-entra" style={{ "--atraso": "220ms" } as React.CSSProperties} aria-hidden>
+              <div className="lp-mockup">
+                <div className="lp-mockup-pilula lp-camada" data-profundidade="alta">
+                  <span className="lp-pilula-icone">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="m3 7 9 6 9-6" />
+                    </svg>
+                  </span>
+                  Novo alerta enviado
                 </div>
-                <strong>Aquisição de equipamentos de informática</strong>
-                <p>Prefeitura Municipal · SP · Pregão Eletrônico</p>
-                <div className="lp-mockup-info">
-                  <span>Valor: R$ 1,2 mi</span>
-                  <span>Propostas até: 24/07</span>
+
+                <div className="lp-mockup-cartao lp-camada" data-profundidade="media">
+                  <span className="lp-brilho" aria-hidden />
+                  <div className="lp-mockup-topo">
+                    <span className="etiqueta etiqueta-nova">novo</span>
+                    <span className="lp-mockup-estrela">★</span>
+                  </div>
+                  <strong>Aquisição de equipamentos de informática</strong>
+                  <p>Prefeitura Municipal · SP · Pregão Eletrônico</p>
+                  <div className="lp-mockup-info">
+                    <span>Valor: R$ 1,2 mi</span>
+                    <span>Propostas até: 24/07</span>
+                  </div>
+                  <div className="lp-mockup-barra">
+                    <span className="lp-mockup-barra-fill" />
+                  </div>
+                  <span className="lp-mockup-legenda">
+                    Compatibilidade com o seu perfil · 92%
+                  </span>
                 </div>
-              </div>
-              <div className="lp-mockup-chat">
-                <div className="lp-bolha-usuario">Vale a pena participar?</div>
-                <div className="lp-bolha-ia">
-                  Sim — o objeto combina com o seu perfil e o prazo é
-                  confortável. Os principais requisitos de habilitação são…
+
+                <div className="lp-mockup-chat lp-camada" data-profundidade="baixa">
+                  <div className="lp-bolha-usuario">Vale a pena participar?</div>
+                  <div className="lp-bolha-ia">
+                    Sim — o objeto combina com o seu perfil e o prazo é
+                    confortável. Os principais requisitos de habilitação são…
+                    <span className="lp-digitando">
+                      <i /> <i /> <i />
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -256,11 +303,16 @@ export default function PaginaInicial() {
         {/* Como funciona */}
         <section className="lp-secao-passos">
           <div className="container">
-            <h2 className="lp-secao-titulo">Como funciona</h2>
-            <p className="lp-secao-sub">
-              Do cadastro ao primeiro alerta em poucos minutos.
-            </p>
-            <div className="lp-passos">
+            <Revelar>
+              <span className="lp-sobrancelha">Como funciona</span>
+              <h2 className="lp-secao-titulo">
+                Do cadastro ao primeiro alerta
+              </h2>
+              <p className="lp-secao-sub">
+                Três passos e poucos minutos — o resto é automático.
+              </p>
+            </Revelar>
+            <Revelar lista className="lp-passos">
               <div className="lp-passo">
                 <span className="lp-passo-num">1</span>
                 <h3>Diga o que você vende</h3>
@@ -285,20 +337,24 @@ export default function PaginaInicial() {
                   edital e decidir se vale participar.
                 </p>
               </div>
-            </div>
+            </Revelar>
           </div>
         </section>
 
         {/* Benefícios */}
         <section className="lp-secao lp-secao-alt">
           <div className="container">
-            <h2 className="lp-secao-titulo">Tudo para vender mais ao governo</h2>
-            <p className="lp-secao-sub">
-              Menos tempo procurando, mais tempo fechando negócio.
-            </p>
-            <div className="lp-beneficios">
+            <Revelar>
+              <span className="lp-sobrancelha">Recursos</span>
+              <h2 className="lp-secao-titulo">Tudo para vender mais ao governo</h2>
+              <p className="lp-secao-sub">
+                Menos tempo procurando, mais tempo fechando negócio.
+              </p>
+            </Revelar>
+            <Revelar lista className="lp-beneficios">
               {BENEFICIOS.map((b) => (
                 <div className="lp-beneficio" key={b.titulo}>
+                  <span className="lp-brilho" aria-hidden />
                   <div className="lp-beneficio-cabecalho">
                     <div className="lp-beneficio-icone">
                       <IconeBeneficio>{b.icone}</IconeBeneficio>
@@ -308,18 +364,21 @@ export default function PaginaInicial() {
                   <p className="texto-suave">{b.texto}</p>
                 </div>
               ))}
-            </div>
+            </Revelar>
           </div>
         </section>
 
         {/* Planos */}
-        <section className="lp-secao container" id="planos">
-          <h2 className="lp-secao-titulo">Planos simples, sem surpresa</h2>
-          <p className="lp-secao-sub">
-            Comece grátis por 14 dias — sem cartão de crédito. Cancele quando
-            quiser.
-          </p>
-          <div className="planos-grade" style={{ marginTop: 26 }}>
+        <section className="lp-secao container lp-planos" id="planos">
+          <Revelar>
+            <span className="lp-sobrancelha">Planos</span>
+            <h2 className="lp-secao-titulo">Planos simples, sem surpresa</h2>
+            <p className="lp-secao-sub">
+              Comece grátis por 14 dias — sem cartão de crédito. Cancele quando
+              quiser.
+            </p>
+          </Revelar>
+          <Revelar lista className="planos-grade" >
             <div className="cartao plano-cartao">
               <h3>Teste grátis</h3>
               <p className="plano-preco">
@@ -372,10 +431,10 @@ export default function PaginaInicial() {
                 Assinar Profissional
               </Link>
             </div>
-          </div>
+          </Revelar>
 
           {/* Consultoria (serviço sob consulta) */}
-          <div className="lp-consultoria">
+          <Revelar className="lp-consultoria">
             <div className="lp-consultoria-texto">
               <span className="etiqueta etiqueta-nova">Consultoria</span>
               <h3>Prefere que um especialista cuide de tudo?</h3>
@@ -389,33 +448,43 @@ export default function PaginaInicial() {
             <Link href="/consultoria" className="botao botao-grande">
               Falar com um consultor
             </Link>
-          </div>
+          </Revelar>
         </section>
 
         {/* FAQ */}
         <section className="lp-secao container">
-          <h2 className="lp-secao-titulo">Perguntas frequentes</h2>
-          <div className="lp-faq">
+          <Revelar>
+            <span className="lp-sobrancelha">Dúvidas</span>
+            <h2 className="lp-secao-titulo">Perguntas frequentes</h2>
+          </Revelar>
+          <Revelar lista className="lp-faq">
             {FAQ.map((item) => (
               <details className="lp-faq-item" key={item.p}>
                 <summary>{item.p}</summary>
                 <p className="texto-suave">{item.r}</p>
               </details>
             ))}
-          </div>
+          </Revelar>
         </section>
 
         {/* CTA final */}
         <section className="lp-cta-final">
+          <div className="lp-fx lp-fx-escuro" aria-hidden>
+            <div className="lp-malha" />
+            <span className="lp-orbe lp-orbe-a" />
+            <span className="lp-orbe lp-orbe-c" />
+          </div>
           <div className="container">
-            <h2>Comece seu teste grátis de 14 dias</h2>
-            <p>
-              Sem cartão de crédito. Monte seu perfil e receba as primeiras
-              oportunidades hoje mesmo.
-            </p>
-            <Link href="/login" className="botao botao-grande botao-claro">
-              Criar minha conta grátis
-            </Link>
+            <Revelar>
+              <h2>Comece seu teste grátis de 14 dias</h2>
+              <p>
+                Sem cartão de crédito. Monte seu perfil e receba as primeiras
+                oportunidades hoje mesmo.
+              </p>
+              <Link href="/login" className="botao botao-grande botao-claro">
+                Criar minha conta grátis
+              </Link>
+            </Revelar>
           </div>
         </section>
       </main>

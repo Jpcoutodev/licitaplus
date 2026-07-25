@@ -18,3 +18,6 @@ supabase/.branches/
 .DS_Store
 Thumbs.db
 *.log
+
+# typescript (cache incremental)
+*.tsbuildinfo
