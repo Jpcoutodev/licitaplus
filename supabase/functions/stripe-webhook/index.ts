@@ -4,9 +4,13 @@
  * Verifica a assinatura do evento (HMAC-SHA256 do payload com o segredo do
  * endpoint) antes de confiar em qualquer dado. Eventos tratados:
  *   checkout.session.completed      -> ativa o plano do usuário
+ *   checkout.session.expired        -> desistência (só registra no funil)
  *   customer.subscription.created   -> ativa (upgrade/downgrade fora do checkout)
  *   customer.subscription.updated   -> renova/ajusta validade e plano
  *   customer.subscription.deleted   -> encerra (expira imediatamente)
+ *
+ * Cada etapa também vira uma linha em public.assinatura_eventos, que alimenta
+ * o funil na aba Métricas.
  *
  * Secrets (Supabase): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
  * STRIPE_PRICE_ESSENCIAL, STRIPE_PRICE_PROFISSIONAL.
@@ -132,22 +136,80 @@ function planoDoPrice(priceId: string | undefined): string | null {
   return null;
 }
 
+/**
+ * Registra a etapa do funil de assinatura. Falha aqui nunca derruba o
+ * processamento do evento — perder telemetria é melhor que devolver 500 ao
+ * Stripe e fazer ele reenviar tudo.
+ */
+async function registrar(
+  evento: string,
+  dados: {
+    userId?: string | null;
+    plano?: string | null;
+    detalhe?: string | null;
+    sessao?: string | null;
+    subscription?: string | null;
+  } = {},
+): Promise<void> {
+  try {
+    await clientServico().from("assinatura_eventos").insert({
+      user_id: dados.userId ?? null,
+      evento,
+      plano: dados.plano ?? null,
+      detalhe: dados.detalhe?.slice(0, 300) ?? null,
+      stripe_session_id: dados.sessao ?? null,
+      stripe_subscription_id: dados.subscription ?? null,
+    });
+  } catch (erro) {
+    console.error(JSON.stringify({
+      funcao: "stripe-webhook",
+      aviso: "falha ao registrar evento",
+      erro: erro instanceof Error ? erro.message : String(erro),
+    }));
+  }
+}
+
+/** Descobre de quem é a assinatura, para o evento não ficar órfão. */
+async function donoDaSubscription(subId: string): Promise<string | null> {
+  const { data } = await clientServico()
+    .from("contas")
+    .select("user_id")
+    .eq("stripe_subscription_id", subId)
+    .maybeSingle();
+  return (data?.user_id as string) ?? null;
+}
+
 /** Encerra o acesso da assinatura (expira agora). */
-async function encerrarSubscription(subId: string): Promise<void> {
+async function encerrarSubscription(
+  subId: string,
+  motivo: string,
+): Promise<void> {
+  const userId = await donoDaSubscription(subId);
   await clientServico()
     .from("contas")
     .update({ plano_ativo_ate: new Date().toISOString() })
     .eq("stripe_subscription_id", subId);
+  await registrar("assinatura_cancelada", {
+    userId,
+    detalhe: motivo,
+    subscription: subId,
+  });
 }
 
+/**
+ * `origem` distingue as duas portas de entrada: "checkout" é sempre uma
+ * assinatura nova; "subscription" pode ser renovação (nada muda) ou troca de
+ * plano — decidimos comparando com o plano gravado na conta.
+ */
 async function aplicarSubscription(
   sub: AssinaturaStripe,
+  origem: "checkout" | "subscription",
   userId?: string,
 ): Promise<void> {
   const service = clientServico();
 
   if (STATUS_MORTOS.has(sub.status)) {
-    await encerrarSubscription(sub.id);
+    await encerrarSubscription(sub.id, `status ${sub.status}`);
     return;
   }
   if (!STATUS_ATIVOS.has(sub.status)) {
@@ -158,18 +220,30 @@ async function aplicarSubscription(
       status: sub.status,
       sub: sub.id,
     }));
+    await registrar("pagamento_falhou", {
+      userId: userId ?? sub.metadata?.user_id ??
+        await donoDaSubscription(sub.id),
+      detalhe: `status ${sub.status} — acesso mantido, Stripe ainda retenta`,
+      subscription: sub.id,
+    });
     return;
   }
 
   const plano = planoDoPrice(sub.items?.data?.[0]?.price?.id);
   const fim = fimDoPeriodo(sub);
   if (!plano || !fim) {
+    const motivo = !plano ? "price desconhecido" : "sem fim de periodo";
     console.error(JSON.stringify({
       funcao: "stripe-webhook",
-      erro: !plano ? "price desconhecido" : "sem fim de periodo",
+      erro: motivo,
       sub: sub.id,
       price: sub.items?.data?.[0]?.price?.id ?? null,
     }));
+    await registrar("checkout_erro", {
+      userId: userId ?? sub.metadata?.user_id ?? null,
+      detalhe: `${motivo} (price ${sub.items?.data?.[0]?.price?.id ?? "?"})`,
+      subscription: sub.id,
+    });
     return;
   }
 
@@ -183,6 +257,19 @@ async function aplicarSubscription(
   // O user_id vem do checkout ou do metadata da subscription; sem ele,
   // localizamos a conta pela própria subscription já vinculada.
   const alvo = userId ?? sub.metadata?.user_id;
+  const dono = alvo ?? await donoDaSubscription(sub.id);
+
+  // Plano anterior, para saber se este evento é troca ou apenas renovação.
+  let planoAnterior: string | null = null;
+  if (dono) {
+    const { data } = await service
+      .from("contas")
+      .select("plano")
+      .eq("user_id", dono)
+      .maybeSingle();
+    planoAnterior = (data?.plano as string) ?? null;
+  }
+
   if (alvo) {
     await service.from("contas").update(dados).eq("user_id", alvo);
   } else {
@@ -191,6 +278,23 @@ async function aplicarSubscription(
       sub.id,
     );
   }
+
+  if (origem === "checkout") {
+    await registrar("assinatura_ativada", {
+      userId: dono,
+      plano,
+      subscription: sub.id,
+    });
+  } else if (planoAnterior && planoAnterior !== plano) {
+    await registrar("plano_trocado", {
+      userId: dono,
+      plano,
+      detalhe: `de ${planoAnterior} para ${plano}`,
+      subscription: sub.id,
+    });
+  }
+  // Renovação (mesmo plano, vindo do Stripe) não vira evento: encheria o
+  // funil de ruído mensal sem responder nada que o painel já não mostre.
 }
 
 Deno.serve(async (req) => {
@@ -219,17 +323,30 @@ Deno.serve(async (req) => {
         objeto.payment_status === "no_payment_required";
       if (userId && subId && pago) {
         const sub = await buscarSubscription(subId);
-        if (sub) await aplicarSubscription(sub, userId);
+        if (sub) await aplicarSubscription(sub, "checkout", userId);
+      } else if (userId) {
+        await registrar("checkout_erro", {
+          userId,
+          detalhe: `sessão concluída sem pagamento (${objeto.payment_status})`,
+          sessao: objeto.id as string | undefined,
+        });
       }
+    } else if (evento.type === "checkout.session.expired") {
+      // Desistência: o cliente abriu o checkout e não concluiu até vencer.
+      await registrar("checkout_expirado", {
+        userId: objeto.client_reference_id as string | undefined,
+        detalhe: "sessão de checkout expirou sem pagamento",
+        sessao: objeto.id as string | undefined,
+      });
     } else if (
       evento.type === "customer.subscription.created" ||
       evento.type === "customer.subscription.updated"
     ) {
       const sub = objeto as unknown as AssinaturaStripe;
-      if (sub.id) await aplicarSubscription(sub);
+      if (sub.id) await aplicarSubscription(sub, "subscription");
     } else if (evento.type === "customer.subscription.deleted") {
       const subId = objeto.id as string | undefined;
-      if (subId) await encerrarSubscription(subId);
+      if (subId) await encerrarSubscription(subId, "assinatura cancelada");
     }
 
     console.log(JSON.stringify({ funcao: "stripe-webhook", tipo: evento.type }));

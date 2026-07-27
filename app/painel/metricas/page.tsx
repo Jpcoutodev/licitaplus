@@ -20,6 +20,43 @@ interface EventoIA {
   created_at: string;
 }
 
+interface LinhaFunil {
+  evento: string;
+  total: number;
+  usuarios: number;
+}
+
+interface EventoAssinatura {
+  id: string;
+  evento: string;
+  email: string | null;
+  empresa: string | null;
+  plano: string | null;
+  detalhe: string | null;
+  created_at: string;
+}
+
+/** Ordem do funil, do topo (clicou) ao fundo (assinou) e às saídas. */
+const FUNIL_ORDEM = [
+  "checkout_iniciado",
+  "assinatura_ativada",
+  "checkout_expirado",
+  "checkout_erro",
+  "plano_trocado",
+  "pagamento_falhou",
+  "assinatura_cancelada",
+];
+
+const ROTULO_FUNIL: Record<string, string> = {
+  checkout_iniciado: "Clicaram em assinar",
+  assinatura_ativada: "Assinaram",
+  checkout_expirado: "Desistiram",
+  checkout_erro: "Deu erro",
+  plano_trocado: "Trocaram de plano",
+  pagamento_falhou: "Pagamento falhou",
+  assinatura_cancelada: "Cancelaram",
+};
+
 const ROTULO_ACAO: Record<string, string> = {
   anexar_pncp: "Anexo (PNCP)",
   anexar_upload: "Anexo (upload)",
@@ -67,6 +104,20 @@ export default async function PaginaMetricas() {
     .order("created_at", { ascending: false })
     .limit(40);
   const eventos = (eventosData ?? []) as EventoIA[];
+  // Funil de assinatura: agregado dos últimos 30 dias + eventos recentes.
+  const { data: funilData } = await supabase.rpc("funil_assinatura", {
+    dias: 30,
+  });
+  const funil = new Map(
+    ((funilData ?? []) as LinhaFunil[]).map((l) => [l.evento, l]),
+  );
+
+  const { data: assinaturaData } = await supabase.rpc(
+    "eventos_assinatura_recentes",
+    { limite: 40 },
+  );
+  const eventosAssinatura = (assinaturaData ?? []) as EventoAssinatura[];
+
   const idsUsuarios = [
     ...new Set(eventos.map((e) => e.user_id).filter(Boolean)),
   ] as string[];
@@ -170,6 +221,86 @@ export default async function PaginaMetricas() {
                   <td>{l.visualizacoes.toLocaleString("pt-BR")}</td>
                   <td>{l.conversoes.toLocaleString("pt-BR")}</td>
                   <td>{l.taxa_conversao ?? 0}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Funil de assinatura */}
+      <div className="cabecalho-pagina" style={{ marginTop: 30 }}>
+        <div>
+          <h2>Funil de assinatura</h2>
+          <p className="texto-suave sem-margem">
+            Últimos 30 dias. &quot;Desistiram&quot; são checkouts abertos que
+            venceram sem pagamento — o Stripe leva até 24h para confirmar.
+          </p>
+        </div>
+      </div>
+
+      <div className="cartao" style={{ overflowX: "auto" }}>
+        <table className="tabela-metricas">
+          <thead>
+            <tr>
+              <th>Etapa</th>
+              <th>Eventos</th>
+              <th>Pessoas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {FUNIL_ORDEM.map((chave) => {
+              const linha = funil.get(chave);
+              return (
+                <tr key={chave}>
+                  <td>{ROTULO_FUNIL[chave]}</td>
+                  <td>{(linha?.total ?? 0).toLocaleString("pt-BR")}</td>
+                  <td>{(linha?.usuarios ?? 0).toLocaleString("pt-BR")}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {eventosAssinatura.length === 0 ? (
+        <div className="cartao">
+          <p className="texto-suave sem-margem">
+            Nenhum evento de assinatura ainda.
+          </p>
+        </div>
+      ) : (
+        <div className="cartao" style={{ overflowX: "auto" }}>
+          <table className="tabela-metricas">
+            <thead>
+              <tr>
+                <th>Quando</th>
+                <th>Quem</th>
+                <th>Etapa</th>
+                <th>Plano</th>
+                <th>Detalhe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {eventosAssinatura.map((e) => (
+                <tr key={e.id}>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {new Date(e.created_at).toLocaleString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td>
+                    {e.email ?? "—"}
+                    {e.empresa && (
+                      <span className="texto-suave"> · {e.empresa}</span>
+                    )}
+                  </td>
+                  <td>{ROTULO_FUNIL[e.evento] ?? e.evento}</td>
+                  <td>{e.plano ?? "—"}</td>
+                  <td className="texto-suave">{e.detalhe ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
