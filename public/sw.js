@@ -8,8 +8,9 @@ self.addEventListener("activate", (evento) => {
   evento.waitUntil(self.clients.claim());
 });
 
-// Pass-through (sem cache agressivo, para nunca servir versão velha do app).
-self.addEventListener("fetch", () => {});
+// Sem handler de "fetch" de propósito: nada é cacheado aqui (para nunca servir
+// versão velha do app) e um handler vazio só faria o navegador acordar o
+// service worker a cada navegação — é o que o Chrome sinaliza como no-op.
 
 // Recebe a notificação push (Web Push nativo) e exibe.
 self.addEventListener("push", (evento) => {

@@ -8,6 +8,20 @@ import { MARCA } from "@/lib/marca";
  */
 export async function POST() {
   const url = (caminho: string) => new URL(caminho, MARCA.siteUrl);
+  try {
+    return await abrirPortal(url);
+  } catch (erro) {
+    console.error("portal", erro instanceof Error ? erro.message : erro);
+    return NextResponse.redirect(url("/painel/assinatura?erro=portal"), 303);
+  }
+}
+
+/** Chave da Stripe utilizável: sem espaços/quebras de linha e com o prefixo. */
+function chaveValida(valor: string | undefined): valor is string {
+  return !!valor && !/\s/.test(valor) && valor.startsWith("sk_");
+}
+
+async function abrirPortal(url: (caminho: string) => URL) {
   const chave = process.env.STRIPE_SECRET_KEY;
 
   const supabase = await criarClientServidor();
@@ -22,7 +36,7 @@ export async function POST() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!chave || !conta?.stripe_customer_id) {
+  if (!chaveValida(chave) || !conta?.stripe_customer_id) {
     return NextResponse.redirect(url("/painel/assinatura?erro=portal"), 303);
   }
 

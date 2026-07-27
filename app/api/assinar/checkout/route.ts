@@ -40,9 +40,33 @@ interface SubscriptionStripe {
   items?: { data?: Array<{ id: string; price?: { id?: string } }> };
 }
 
+/**
+ * Valida o formato do env antes de usar. Não é preciosismo: um valor colado
+ * com quebra de linha (o bloco inteiro num campo só, por exemplo) explodia
+ * dentro do fetch com um 500 opaco em vez de avisar que a config está errada.
+ */
+function envValido(
+  valor: string | undefined,
+  prefixo: string,
+): valor is string {
+  return !!valor && !/\s/.test(valor) && valor.startsWith(prefixo);
+}
+
 export async function POST(request: Request) {
   const url = (caminho: string) => new URL(caminho, MARCA.siteUrl);
 
+  try {
+    return await criarAssinatura(request, url);
+  } catch (erro) {
+    console.error("checkout", erro instanceof Error ? erro.message : erro);
+    return NextResponse.redirect(url("/assinar?erro=stripe"), 303);
+  }
+}
+
+async function criarAssinatura(
+  request: Request,
+  url: (caminho: string) => URL,
+) {
   const chave = process.env.STRIPE_SECRET_KEY;
   const precos: Record<string, string | undefined> = {
     essencial: process.env.STRIPE_PRICE_ESSENCIAL,
@@ -52,7 +76,13 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const plano = String(form.get("plano") ?? "");
   const preco = precos[plano];
-  if (!chave || !preco) {
+  if (!envValido(chave, "sk_") || !envValido(preco, "price_")) {
+    console.error("checkout: env da Stripe ausente ou malformado", {
+      chave: chave ? "presente" : "ausente",
+      chaveOk: envValido(chave, "sk_"),
+      plano,
+      precoOk: envValido(preco, "price_"),
+    });
     return NextResponse.redirect(url("/assinar?erro=config"), 303);
   }
 
