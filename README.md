@@ -109,6 +109,57 @@ npx supabase functions invoke coletar
 `busca-retroativa` é chamada pelo frontend após salvar um perfil (exige o JWT
 do usuário dono do perfil) e coleta imediatamente as fatias daquele perfil.
 
+## Pagamentos (Stripe)
+
+Três peças: as rotas `/api/assinar/checkout` e `/api/assinar/portal` (rodam na
+Vercel) e a edge function `stripe-webhook` (roda no Supabase e é quem de fato
+libera o plano). O projeto **não usa** a chave publicável nem Stripe.js — o
+checkout é um redirect server-side.
+
+Na Stripe, criar dois produtos com preço **recorrente mensal em BRL**
+(Essencial R$ 97 e Profissional R$ 197) e anotar os IDs de **preço**
+(`price_...`, não `prod_...`). Depois criar o webhook apontando para
+`https://SEU_PROJECT_REF.supabase.co/functions/v1/stripe-webhook`, assinando
+os eventos:
+
+```
+checkout.session.completed
+customer.subscription.created
+customer.subscription.updated
+customer.subscription.deleted
+```
+
+Variáveis na **Vercel**: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ESSENCIAL`,
+`STRIPE_PRICE_PROFISSIONAL`.
+
+Secrets no **Supabase** (as mesmas três + o segredo do endpoint):
+
+```powershell
+npx supabase secrets set STRIPE_SECRET_KEY=sk_...
+npx supabase secrets set STRIPE_PRICE_ESSENCIAL=price_...
+npx supabase secrets set STRIPE_PRICE_PROFISSIONAL=price_...
+npx supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
+npx supabase functions deploy stripe-webhook
+```
+
+Os `price_` precisam ser **os mesmos** nos dois lados: o webhook usa o price
+para decidir o plano e ignora o evento se não reconhecer nenhum (falha alta,
+de propósito — classificar errado significaria cobrar R$197 entregando R$97).
+
+O deploy dispensa `--no-verify-jwt`: `config.toml` já traz
+`[functions.stripe-webhook] verify_jwt = false`, porque a Stripe não manda JWT
+do Supabase.
+
+Notas de compatibilidade:
+
+- Desde a API `2025-03-31.basil` o `current_period_end` **saiu** do objeto
+  Subscription e vive em `items.data[].current_period_end`. O webhook lê do
+  item com fallback para o campo antigo.
+- Trial é do app (14 dias, controlados em `contas.created_at`), não da Stripe —
+  o checkout não usa `trial_period_days`.
+- Troca de plano de quem já assina **atualiza a assinatura existente** em vez
+  de abrir novo checkout; abrir um segundo geraria duas cobranças mensais.
+
 ## Regras do banco (resumo)
 
 - `licitacoes.numero_controle_pncp` é `UNIQUE` — é o mecanismo de idempotência

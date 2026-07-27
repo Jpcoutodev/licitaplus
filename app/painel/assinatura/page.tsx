@@ -25,7 +25,7 @@ function dataBr(iso: string | null): string {
 export default async function PaginaAssinatura({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; ok?: string }>;
 }) {
   const sp = await searchParams;
   const supabase = await criarClientServidor();
@@ -81,6 +81,12 @@ export default async function PaginaAssinatura({
         </div>
       </div>
 
+      {sp?.ok === "plano" && (
+        <p className="mensagem-sucesso">
+          Plano alterado! A diferença proporcional entra na próxima fatura.
+          Atualize a página em instantes para ver o plano novo.
+        </p>
+      )}
       {sp?.erro === "portal" && (
         <p className="mensagem-erro">
           Não foi possível abrir o portal de pagamento agora. Tente novamente
@@ -176,10 +182,20 @@ export default async function PaginaAssinatura({
               "Você está no nosso plano mais completo."}
           </p>
           <p style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {(ehTrial || ass.plano === "essencial") && (
+            {ehTrial && (
               <Link href="/assinar" className="botao">
-                {ehTrial ? "Ver planos" : "Upgrade para Profissional"}
+                Ver planos
               </Link>
+            )}
+            {/* Quem já assina troca de plano na assinatura existente — abrir um
+                checkout novo criaria uma segunda cobrança mensal. */}
+            {ehAtivo && ass.plano === "essencial" && (
+              <form action="/api/assinar/checkout" method="post">
+                <input type="hidden" name="plano" value="profissional" />
+                <button type="submit" className="botao">
+                  Upgrade para Profissional
+                </button>
+              </form>
             )}
             {conta?.stripe_customer_id && (
               <form action="/api/assinar/portal" method="post">
