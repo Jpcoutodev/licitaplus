@@ -2912,3 +2912,33 @@ main.container {
   .convite-push-acoes { width: 100%; }
   .convite-push-acoes .botao { flex: 1; justify-content: center; }
 }
+
+/* diagnóstico da fila de notificação (aba Métricas) */
+.saude-diagnostico {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-radius: var(--raio);
+  border: 1px solid var(--borda);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.saude-diagnostico strong { white-space: nowrap; }
+.saude-diagnostico p { flex: 1; min-width: 240px; }
+.saude-diagnostico--ok {
+  background: var(--sucesso-fundo);
+  border-color: #a7f3d0;
+  color: var(--sucesso);
+}
+.saude-diagnostico--aviso {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+.saude-diagnostico--erro {
+  background: var(--erro-fundo);
+  border-color: #fecaca;
+  color: var(--erro);
+}

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { criarClientServidor } from "@/lib/supabase/server";
 import { LeadToggle } from "./lead-toggle";
+import { SaudeNotificacao, type DadosSaude } from "./saude-notificacao";
 
 interface LinhaResumo {
   caminho: string;
@@ -104,6 +105,10 @@ export default async function PaginaMetricas() {
     .order("created_at", { ascending: false })
     .limit(40);
   const eventos = (eventosData ?? []) as EventoIA[];
+  // Saúde da notificação: o sinal que avisa antes de virar reclamação.
+  const { data: saudeData } = await supabase.rpc("saude_notificacao");
+  const saude = (saudeData ?? null) as DadosSaude | null;
+
   // Funil de assinatura: agregado dos últimos 30 dias + eventos recentes.
   const { data: funilData } = await supabase.rpc("funil_assinatura", {
     dias: 30,
@@ -227,6 +232,8 @@ export default async function PaginaMetricas() {
           </table>
         </div>
       )}
+
+      <SaudeNotificacao dados={saude} />
 
       {/* Funil de assinatura */}
       <div className="cabecalho-pagina" style={{ marginTop: 30 }}>
