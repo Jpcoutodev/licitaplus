@@ -5,6 +5,7 @@ import {
   LicitacaoCartao,
   type LicitacaoCartaoDados,
 } from "./licitacao-cartao";
+import { ConvitePush } from "./convite-push";
 
 interface LinhaPainel {
   id: string;
@@ -187,6 +188,10 @@ export default async function PaginaPainel({
           )}
         </div>
       </div>
+
+      {/* Convite de push: só aparece para quem ainda não ativou, e apenas no
+          painel normal — em "ocultas" seria ruído. */}
+      {!verOcultas && temPerfil && <ConvitePush />}
 
       {error && (
         <p className="mensagem-erro">

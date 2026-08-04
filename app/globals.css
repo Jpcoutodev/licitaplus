@@ -2864,3 +2864,51 @@ main.container {
   line-height: 1.6;
   flex-shrink: 0;
 }
+
+/* convite para ativar push, no topo do painel */
+.convite-push {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid #dbe4ff;
+  border-radius: var(--raio);
+  background:
+    radial-gradient(420px 160px at 100% 0%, rgba(37, 99, 235, 0.08), transparent 65%),
+    var(--superficie);
+  box-shadow: var(--sombra);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  animation: lp-surgir 0.4s ease both;
+}
+.convite-push-icone {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.convite-push-texto {
+  flex: 1;
+  min-width: 220px;
+}
+.convite-push-texto strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #0d1626;
+}
+.convite-push-acoes {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.convite-push--ok {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  font-weight: 500;
+}
+.convite-push--ok span { font-size: 20px; }
+
+@media (max-width: 560px) {
+  .convite-push-acoes { width: 100%; }
+  .convite-push-acoes .botao { flex: 1; justify-content: center; }
+}
