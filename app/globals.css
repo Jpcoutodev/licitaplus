@@ -2972,3 +2972,15 @@ main.container {
   filter: none;
 }
 .leads-zap:hover { background: #1fbe5a; }
+
+/* extração de contatos a partir de uma URL (ficha do lead) */
+.leads-extrair {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.leads-extrair input {
+  flex: 1;
+  min-width: 260px;
+}

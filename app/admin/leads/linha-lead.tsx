@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { criarClientNavegador } from "@/lib/supabase/client";
 
 export interface Lead {
   ni_fornecedor: string;
@@ -107,6 +108,9 @@ export function LinhaLead({
   const [salvando, setSalvando] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [erroBusca, setErroBusca] = useState<string | null>(null);
+  const [urlSite, setUrlSite] = useState("");
+  const [extraindo, setExtraindo] = useState(false);
+  const [msgExtracao, setMsgExtracao] = useState<string | null>(null);
 
   // A consulta ao CNPJ preenche contato no registro; traz para o formulário
   // aberto. Depende dos valores em si, não do objeto, para não sobrescrever o
@@ -145,6 +149,59 @@ export function LinhaLead({
       );
     } finally {
       setBuscando(false);
+    }
+  }
+
+  /**
+   * Lê a página informada e preenche os campos com o que achar.
+   *
+   * A extração é feita no servidor: regex acha os candidatos e a IA só
+   * escolhe entre eles — ela nunca produz um número, então não há como
+   * inventar um contato.
+   */
+  async function extrairDaUrl() {
+    if (!urlSite.trim()) return;
+    setExtraindo(true);
+    setMsgExtracao(null);
+    setErroBusca(null);
+    try {
+      const supabase = criarClientNavegador();
+      const { data, error } = await supabase.functions.invoke(
+        "extrair-contato",
+        { body: { url: urlSite.trim() } },
+      );
+      if (error) throw new Error(error.message);
+      const r = data as {
+        erro?: string;
+        encontrou?: boolean;
+        email: string | null;
+        telefone: string | null;
+        whatsapp: string | null;
+        responsavel: string | null;
+        observacao: string | null;
+      };
+      if (r?.erro && !r.encontrou) throw new Error(r.erro);
+
+      const achados: string[] = [];
+      if (r.email) { setEmail(r.email); achados.push("email"); }
+      const tel = r.whatsapp ?? r.telefone;
+      if (tel) { setTelefone(tel); achados.push("telefone"); }
+      if (r.responsavel) {
+        setResponsavel(r.responsavel);
+        achados.push("responsável");
+      }
+
+      setMsgExtracao(
+        achados.length > 0
+          ? `Preenchido: ${achados.join(", ")}. ${r.observacao ?? ""} Confira e salve.`
+          : `Nada aproveitável nesta página. ${r.observacao ?? ""}`,
+      );
+    } catch (excecao) {
+      setErroBusca(
+        excecao instanceof Error ? excecao.message : "não deu para ler a página",
+      );
+    } finally {
+      setExtraindo(false);
     }
   }
 
@@ -333,6 +390,29 @@ export function LinhaLead({
                 LinkedIn ↗
               </a>
             </div>
+            {/* Extração assistida: você acha o site com os botões acima, cola
+                aqui, e o servidor lê a página. */}
+            <div className="leads-extrair">
+              <input
+                type="url"
+                value={urlSite}
+                onChange={(e) => setUrlSite(e.target.value)}
+                placeholder="Cole aqui o site da empresa (ex.: empresa.com.br/contato)"
+                aria-label="Site da empresa"
+              />
+              <button
+                type="button"
+                className="botao"
+                onClick={extrairDaUrl}
+                disabled={extraindo || !urlSite.trim()}
+              >
+                {extraindo ? "Lendo a página…" : "Extrair contatos"}
+              </button>
+            </div>
+            {msgExtracao && (
+              <p className="mensagem-sucesso">{msgExtracao}</p>
+            )}
+
             {!zap && lead.contato_telefone && (
               <p className="ajuda">
                 O telefone do cadastro ({lead.contato_telefone}) parece fixo —
