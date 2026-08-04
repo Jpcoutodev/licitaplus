@@ -2606,10 +2606,18 @@ main.container {
    Área interna da equipe (/admin) — prospecção de leads
    ========================================================= */
 
+/* Altura do topo interno; as abas grudam logo abaixo dela. */
+:root { --admin-topo-altura: 54px; }
+
 .admin-topo {
   background: #0d1626;
   color: #fff;
   padding: 12px 0;
+  /* Fixo: com centenas de leads, rolar a lista não pode custar o acesso à
+     navegação nem obrigar a voltar ao topo. */
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 .admin-topo-linha {
   display: flex;
@@ -2729,8 +2737,16 @@ main.container {
 .leads-abas {
   display: flex;
   gap: 4px;
-  margin: 20px 0 14px;
+  /* Margem negativa + padding: a faixa cobre a largura inteira do container,
+     senão o conteúdo passaria pelas laterais ao rolar por baixo dela. */
+  margin: 20px -20px 14px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--borda);
+  /* Gruda logo abaixo do topo: trocar de aba no meio da lista sem subir. */
+  position: sticky;
+  top: var(--admin-topo-altura);
+  z-index: 30;
+  background: var(--fundo);
 }
 .leads-aba {
   border: none;
