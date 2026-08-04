@@ -2942,3 +2942,33 @@ main.container {
   border-color: #fecaca;
   color: var(--erro);
 }
+
+/* busca de contato na internet (ficha do lead) */
+.leads-internet {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+}
+.leads-internet-rotulo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  margin-right: 2px;
+}
+.leads-internet .botao {
+  padding: 7px 13px;
+  font-size: 13px;
+}
+.leads-zap,
+.leads-zap:hover {
+  background: #25d366;
+  color: #06301a;
+  filter: none;
+}
+.leads-zap:hover { background: #1fbe5a; }

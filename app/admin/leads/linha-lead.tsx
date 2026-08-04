@@ -55,6 +55,28 @@ function dataBr(iso: string | null): string {
   return iso ? new Date(iso).toLocaleDateString("pt-BR") : "—";
 }
 
+/**
+ * Link do WhatsApp a partir do telefone do cadastro.
+ *
+ * O formato da Receita é DDD + número, sem o país. WhatsApp exige 55 na
+ * frente. Só faz sentido para celular (11 dígitos, o nono começando com 9) —
+ * fixo não tem conta, e oferecer o botão levaria a equipe a uma conversa que
+ * nunca abre.
+ */
+function linkWhatsapp(telefone: string | null, empresa: string): string | null {
+  const digitos = (telefone ?? "").replace(/\D/g, "");
+  if (digitos.length !== 11 || digitos[2] !== "9") return null;
+  const texto = encodeURIComponent(
+    `Olá! Falo do SentinelaGov. Vi que a ${empresa} tem contratos com órgãos públicos e encontrei licitações abertas com objeto parecido. Posso te mandar a lista?`,
+  );
+  return `https://wa.me/55${digitos}?text=${texto}`;
+}
+
+/** Busca preparada: abre o Google já com a pergunta certa. */
+function buscaGoogle(termo: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(termo)}`;
+}
+
 /** Anos desde a abertura — empresa nova é quem mais precisa de ajuda. */
 function idadeEmpresa(abertura: string | null): string | null {
   if (!abertura) return null;
@@ -127,6 +149,11 @@ export function LinhaLead({
   }
 
   const idade = idadeEmpresa(lead.data_abertura);
+  // Usa o telefone digitado se houver; senão o que veio do cadastro.
+  const zap = linkWhatsapp(
+    telefone || lead.contato_telefone,
+    lead.nome_fornecedor,
+  );
 
   return (
     <>
@@ -250,6 +277,68 @@ export function LinhaLead({
               )}
             </p>
             {erroBusca && <p className="mensagem-erro">{erroBusca}</p>}
+
+            {/* Procurar contato fora da Receita. As buscas abrem o Google já
+                com a pergunta montada — extrair sozinho exigiria API de busca
+                paga, e raspar resultado de buscador quebra a cada mudança de
+                layout deles. */}
+            <div className="leads-internet">
+              <span className="leads-internet-rotulo">Procurar na internet:</span>
+              {zap && (
+                <a
+                  className="botao leads-zap"
+                  href={zap}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Abrir WhatsApp
+                </a>
+              )}
+              <a
+                className="botao botao-secundario"
+                href={buscaGoogle(`"${lead.nome_fornecedor}" email contato`)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Email ↗
+              </a>
+              <a
+                className="botao botao-secundario"
+                href={buscaGoogle(
+                  `"${lead.nome_fornecedor}" whatsapp OR "wa.me" telefone`,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                WhatsApp ↗
+              </a>
+              <a
+                className="botao botao-secundario"
+                href={buscaGoogle(
+                  `${lead.ni_fornecedor} OR "${lead.nome_fornecedor}" site oficial`,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Site ↗
+              </a>
+              <a
+                className="botao botao-secundario"
+                href={buscaGoogle(
+                  `site:linkedin.com/company "${lead.nome_fornecedor}"`,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                LinkedIn ↗
+              </a>
+            </div>
+            {!zap && lead.contato_telefone && (
+              <p className="ajuda">
+                O telefone do cadastro ({lead.contato_telefone}) parece fixo —
+                WhatsApp só funciona em celular.
+              </p>
+            )}
 
             <div className="leads-form">
               <label className="campo">
