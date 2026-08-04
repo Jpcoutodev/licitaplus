@@ -24,8 +24,10 @@ self.addEventListener("push", (evento) => {
   const titulo = dados.titulo || "SentinelaGov";
   const opcoes = {
     body: dados.corpo || "Você tem novidades no SentinelaGov.",
-    icon: "/icone-192",
-    badge: "/icone-192",
+    // Com a extensão. Sem ela o caminho dava 404 e o navegador caía no ícone
+    // genérico dele — a notificação chegava sem a marca.
+    icon: "/icone-192.png",
+    badge: "/icone-192.png",
     data: { url: dados.url || "/painel" },
     tag: dados.tag || "sentinelagov",
   };
