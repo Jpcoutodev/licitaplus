@@ -2984,3 +2984,45 @@ main.container {
   flex: 1;
   min-width: 260px;
 }
+
+/* Tabela de leads: cabe na tela sem rolagem lateral.
+   A regra geral de .tabela-metricas aplica nowrap em toda coluna que não seja
+   a primeira — e aqui a primeira é a estrela, então o nome da empresa herdava
+   nowrap e esticava a tabela sozinho. */
+.leads-tabela th,
+.leads-tabela td {
+  padding: 9px 8px;
+}
+/* estrela: só o necessário */
+.leads-tabela th:first-child,
+.leads-tabela td:first-child {
+  padding-right: 0;
+  width: 26px;
+}
+/* nome da empresa: quebra linha e não passa do limite */
+.leads-tabela td:nth-child(2),
+.leads-tabela th:nth-child(2) {
+  white-space: normal;
+  text-align: left;
+  max-width: 320px;
+  padding-left: 4px;
+}
+.leads-tabela td:nth-child(2) strong {
+  display: block;
+  line-height: 1.3;
+  word-break: break-word;
+}
+/* porte encosta no nome */
+.leads-tabela th:nth-child(3),
+.leads-tabela td:nth-child(3) {
+  text-align: left;
+  padding-left: 4px;
+}
+/* ficha expandida volta ao respiro normal */
+.leads-tabela td.leads-ficha { padding: 16px 12px; }
+
+@media (max-width: 1100px) {
+  .leads-tabela td:nth-child(2),
+  .leads-tabela th:nth-child(2) { max-width: 220px; }
+  .leads-tabela { font-size: 13.5px; }
+}
