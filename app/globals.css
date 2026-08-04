@@ -2601,3 +2601,126 @@ main.container {
   .lendo-folha:nth-child(2),
   .lendo-folha:nth-child(3) { opacity: 0; }
 }
+
+/* =========================================================
+   Área interna da equipe (/admin) — prospecção de leads
+   ========================================================= */
+
+.admin-topo {
+  background: #0d1626;
+  color: #fff;
+  padding: 12px 0;
+}
+.admin-topo-linha {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.admin-etiqueta {
+  background: #f59e0b;
+  color: #422006;
+  border-color: transparent;
+  font-weight: 700;
+}
+.admin-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 16px;
+}
+.admin-nav a { color: #cbd5e1; font-size: 14px; }
+.admin-nav a:hover { color: #fff; }
+.admin-conteudo { padding: 26px 20px 60px; max-width: 1200px; }
+
+/* contadores por status, clicáveis */
+.leads-resumo {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 18px 0 14px;
+}
+.leads-chip {
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.leads-chip strong { margin-left: 6px; }
+.leads-chip:hover { border-color: var(--primaria); }
+.leads-chip--ativo {
+  background: var(--primaria-suave);
+  border-color: var(--primaria);
+  color: var(--primaria-escura);
+}
+
+.leads-filtros {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.leads-filtros input[type="search"] { flex: 1; min-width: 220px; }
+.leads-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.leads-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.leads-form-largo { grid-column: 1 / -1; }
+
+.leads-ufs { margin-top: 12px; }
+.leads-ufs summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.leads-ufs-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+.leads-ufs-grade label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.leads-tabela td { vertical-align: top; }
+/* retorno vencido salta aos olhos: é o que precisa de ação hoje */
+.leads-linha--atrasada > td:first-child {
+  border-left: 3px solid var(--ambar);
+  padding-left: 9px;
+}
+.leads-ficha {
+  background: var(--fundo);
+  padding: 16px 12px;
+}
+
+.leads-status {
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--borda);
+  font-family: inherit;
+  background: var(--superficie);
+}
+.leads-status--novo { border-color: #c7d7fb; background: #eff6ff; }
+.leads-status--contatado { border-color: #fde68a; background: #fffbeb; }
+.leads-status--respondeu { border-color: #a7f3d0; background: #ecfdf5; }
+.leads-status--testando { border-color: #ddd6fe; background: #f5f3ff; }
+.leads-status--cliente {
+  border-color: transparent;
+  background: var(--verde-escuro);
+  color: #fff;
+}
+.leads-status--descartado { color: var(--texto-suave); background: var(--fundo); }

@@ -166,6 +166,74 @@ function mapearItemBuscaTextual(item: ItemBuscaTextualPNCP): LicitacaoColetada {
   };
 }
 
+/**
+ * Contrato assinado, com o fornecedor vencedor. Base da prospecção interna
+ * (quem já vende para o governo é quem mais tende a querer monitorar).
+ */
+export interface ContratoPNCP {
+  numeroControlePNCP: string;
+  niFornecedor: string | null;
+  nomeRazaoSocialFornecedor: string | null;
+  tipoPessoa: string | null;
+  objetoContrato: string | null;
+  valorGlobal: number | null;
+  dataPublicacaoPncp: string | null;
+  orgaoEntidade?: { cnpj?: string | null; razaoSocial?: string | null };
+  unidadeOrgao?: { ufSigla?: string | null; municipioNome?: string | null };
+  [campo: string]: unknown;
+}
+
+export interface PaginaContratos {
+  itens: ContratoPNCP[];
+  totalPaginas: number;
+  totalRegistros: number;
+}
+
+/**
+ * Busca uma página de contratos assinados num período.
+ *
+ * A rota não aceita filtro de UF nem de texto — quem quiser recortar precisa
+ * fazê-lo depois, sobre o retorno. E `tamanhoPagina` tem mínimo: valores
+ * pequenos (3, por exemplo) devolvem 400 "Tamanho de página inválido".
+ *
+ * Datas no formato AAAAMMDD (use formatarDataPncp).
+ */
+export async function buscarContratosPorPeriodo(
+  dataInicial: string,
+  dataFinal: string,
+  pagina: number,
+  tamanhoPagina = 500,
+): Promise<PaginaContratos> {
+  const url = new URL(`${urlBasePncp()}/v1/contratos`);
+  url.searchParams.set("dataInicial", dataInicial);
+  url.searchParams.set("dataFinal", dataFinal);
+  url.searchParams.set("pagina", String(pagina));
+  url.searchParams.set("tamanhoPagina", String(tamanhoPagina));
+
+  const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
+
+  // 204 = período sem contratos.
+  if (resposta.status === 204) {
+    return { itens: [], totalPaginas: 0, totalRegistros: 0 };
+  }
+  if (!resposta.ok) {
+    throw new Error(
+      `PNCP respondeu HTTP ${resposta.status} em /v1/contratos (${dataInicial}-${dataFinal}, pagina=${pagina})`,
+    );
+  }
+
+  const corpo = (await resposta.json()) as {
+    data?: ContratoPNCP[];
+    totalPaginas?: number;
+    totalRegistros?: number;
+  };
+  return {
+    itens: (corpo.data ?? []).filter((c) => Boolean(c.numeroControlePNCP)),
+    totalPaginas: corpo.totalPaginas ?? 0,
+    totalRegistros: corpo.totalRegistros ?? 0,
+  };
+}
+
 export interface ItemContratacaoPNCP {
   numeroItem: number;
   descricao: string | null;

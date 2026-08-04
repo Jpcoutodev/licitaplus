@@ -36,8 +36,11 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const rota = request.nextUrl.pathname;
+  // /admin é a área interna da equipe: aqui só garantimos que há sessão; a
+  // checagem de admin fica no layout da rota e, de novo, nas funções do banco.
   const rotaProtegida = rota.startsWith("/painel") ||
-    rota.startsWith("/onboarding") || rota.startsWith("/assinar");
+    rota.startsWith("/onboarding") || rota.startsWith("/assinar") ||
+    rota.startsWith("/admin");
   if (!user && rotaProtegida) {
     const destino = request.nextUrl.clone();
     destino.pathname = "/login";
@@ -48,5 +51,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/painel/:path*", "/onboarding", "/assinar", "/login"],
+  matcher: [
+    "/painel/:path*",
+    "/admin/:path*",
+    "/onboarding",
+    "/assinar",
+    "/login",
+  ],
 };
