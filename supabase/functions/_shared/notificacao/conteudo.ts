@@ -75,13 +75,18 @@ function escaparHtml(texto: string): string {
     .replaceAll('"', "&quot;");
 }
 
-export function montarEmailMatches(itens: ItemEmail[]): {
+export function montarEmailMatches(
+  itens: ItemEmail[],
+  /** Quantas oportunidades ficaram de fora do detalhamento deste email. */
+  extras = 0,
+): {
   assunto: string;
   html: string;
 } {
-  const assunto = itens.length === 1
+  const total = itens.length + extras;
+  const assunto = total === 1
     ? "SentinelaGov: 1 nova licitação para o seu perfil"
-    : `SentinelaGov: ${itens.length} novas licitações para o seu perfil`;
+    : `SentinelaGov: ${total} novas licitações para o seu perfil`;
 
   const blocos = itens.map(({ licitacao: l, resumo }) => {
     const titulo = escaparHtml(l.objeto_compra.slice(0, 140));
@@ -105,7 +110,7 @@ export function montarEmailMatches(itens: ItemEmail[]): {
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;">
       <h2>Novas licitações para o seu perfil</h2>
-      <p>Encontramos oportunidades no PNCP compatíveis com as palavras-chave do seu perfil:</p>
+      <p>Encontramos oportunidades no PNCP compatíveis com as palavras-chave do seu perfil, das mais urgentes para as menos:</p>
       ${blocos.join("\n")}
       <p style="color:#888;font-size:12px;">Você recebe este email porque tem um perfil ativo no SentinelaGov.</p>
     </div>`;

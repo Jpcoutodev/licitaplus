@@ -1,11 +1,24 @@
 /**
- * Edge Function `notificar` — envia por email os matches ainda não
- * notificados. Disparada pelo pg_cron (com service role key).
+ * Edge Function `notificar` — envia os alertas de licitação por email.
+ * Disparada pelo pg_cron (com service role key).
  *
- * Fluxo: matches com notificado_em nulo → agrupa por perfil → gera resumo
- * com IA (campos estruturados apenas) → envia um email por perfil via Resend
- * → grava notificado_em SÓ no sucesso do envio (idempotência: match
- * notificado nunca é reenviado). Falha em um item/perfil não derruba o lote.
+ * Modelo em lotes:
+ *   uma consulta monta todos os lotes da rodada (lotes_para_notificar)
+ *   → resumos gerados só para o que ainda não tem, em paralelo
+ *   → o resumo fica gravado na LICITAÇÃO, para os outros perfis reusarem
+ *   → um email por perfil, detalhando os de prazo mais apertado
+ *   → o lote fecha marcando TODOS os pendentes daquele perfil.
+ *
+ * Três decisões que fazem isso escalar:
+ *
+ * 1. Resumo por licitação, não por match. A mesma licitação casa com dezenas
+ *    de perfis; antes cada um pagava uma chamada de IA.
+ * 2. O lote zera a fila do perfil. O email detalha os mais urgentes e informa
+ *    "+N no painel"; nada fica pendente para sempre. No modelo anterior, com
+ *    4 perfis, entravam 98 matches/dia e saíam 40 — a fila crescia sem fim e,
+ *    sendo FIFO, chegaria a avisar sobre prazo já vencido.
+ * 3. Ordem por prazo, descartando encerradas. Alerta atrasado sobre licitação
+ *    vencida é pior que nenhum alerta.
  */
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -19,32 +32,117 @@ import { enviarEmail } from "../_shared/notificacao/email.ts";
 import { enviarPushUsuario } from "../_shared/notificacao/push.ts";
 import { lerAssinatura } from "../_shared/assinatura.ts";
 
-/** Limites por execução: cabem no timeout da function; o resto fica para a próxima janela. */
-const MAX_MATCHES_POR_EXECUCAO = 30;
-const MAX_MATCHES_POR_EMAIL = 10;
-/** Teto de licitações notificadas por perfil por dia (protege caixa e custo de IA). */
-const MAX_LICITACOES_POR_DIA = 10;
+/** Perfis atendidos por rodada. Com 7 janelas por dia e teto de 3 emails por
+ *  usuário, 40 por rodada cobre bem mais de 100 usuários ativos. */
+const MAX_PERFIS_POR_EXECUCAO = 40;
+/** Licitações detalhadas em cada email; o excedente vira "+N no painel". */
+const DETALHADOS_POR_EMAIL = 8;
+/** Resumos gerados ao mesmo tempo. Sequencial, 30 resumos encostavam no
+ *  limite de tempo da função; em paralelo a rodada cabe com folga. */
+const RESUMOS_SIMULTANEOS = 5;
 
-/** Início do dia de hoje em Brasília (UTC-3), como ISO em UTC. */
-function inicioDoDiaBrasilia(): string {
-  const agora = new Date();
-  const brasilia = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
-  // 00:00 em Brasília = 03:00 UTC do mesmo dia.
-  return new Date(Date.UTC(
-    brasilia.getUTCFullYear(),
-    brasilia.getUTCMonth(),
-    brasilia.getUTCDate(),
-    3,
-    0,
-    0,
-  )).toISOString();
+interface ItemLote {
+  match_id: string;
+  licitacao_id: string;
+  resumo_ia: string | null;
+  numero_controle_pncp: string;
+  objeto_compra: string;
+  informacao_complementar: string | null;
+  valor_total_estimado: number | null;
+  data_abertura_proposta: string | null;
+  data_encerramento_proposta: string | null;
+  orgao_razao_social: string | null;
+  unidade_nome: string | null;
+  uf: string | null;
+  municipio_nome: string | null;
+  modalidade_nome: string | null;
+  link_sistema_origem: string | null;
 }
 
-interface MatchPendente {
-  id: string;
+interface Lote {
   perfil_id: string;
-  licitacoes: LicitacaoParaNotificar;
-  perfis: { user_id: string };
+  user_id: string;
+  email: string;
+  itens: ItemLote[];
+  /** Pendentes com prazo em aberto (inclui os não detalhados). */
+  validos: number;
+  /** Todos os pendentes, inclusive já encerrados. */
+  pendentes: number;
+}
+
+function licitacaoDoItem(i: ItemLote): LicitacaoParaNotificar {
+  return {
+    numero_controle_pncp: i.numero_controle_pncp,
+    objeto_compra: i.objeto_compra,
+    informacao_complementar: i.informacao_complementar,
+    valor_total_estimado: i.valor_total_estimado,
+    data_abertura_proposta: i.data_abertura_proposta,
+    data_encerramento_proposta: i.data_encerramento_proposta,
+    orgao_razao_social: i.orgao_razao_social,
+    unidade_nome: i.unidade_nome,
+    uf: i.uf,
+    municipio_nome: i.municipio_nome,
+    modalidade_nome: i.modalidade_nome,
+    link_sistema_origem: i.link_sistema_origem,
+  } as LicitacaoParaNotificar;
+}
+
+/**
+ * Garante o resumo de cada item: reaproveita o que já está na licitação e
+ * gera o que falta, em paralelo. O que falhar sai do email desta rodada em
+ * vez de derrubar o lote inteiro.
+ */
+async function resumirItens(
+  supabase: SupabaseClient,
+  itens: ItemLote[],
+  erros: Array<{ perfil_id: string; erro: string }>,
+  perfilId: string,
+): Promise<ItemEmail[]> {
+  const prontos: ItemEmail[] = [];
+  const faltando: ItemLote[] = [];
+
+  for (const item of itens) {
+    if (item.resumo_ia) {
+      prontos.push({ licitacao: licitacaoDoItem(item), resumo: item.resumo_ia });
+    } else {
+      faltando.push(item);
+    }
+  }
+
+  for (let i = 0; i < faltando.length; i += RESUMOS_SIMULTANEOS) {
+    const bloco = faltando.slice(i, i + RESUMOS_SIMULTANEOS);
+    const gerados = await Promise.all(
+      bloco.map(async (item) => {
+        try {
+          const licitacao = licitacaoDoItem(item);
+          const resumo = await gerarResumo(licitacao);
+          // Grava na licitação: o próximo perfil que casar não paga de novo.
+          await supabase.rpc("guardar_resumo_ia", {
+            p_licitacao_id: item.licitacao_id,
+            p_resumo: resumo,
+          });
+          return { licitacao, resumo } as ItemEmail;
+        } catch (erro) {
+          erros.push({
+            perfil_id: perfilId,
+            erro: `resumo (${item.numero_controle_pncp}): ${mensagemDe(erro)}`,
+          });
+          return null;
+        }
+      }),
+    );
+    for (const g of gerados) if (g) prontos.push(g);
+  }
+
+  // Mantém a ordem de urgência que veio do banco.
+  const posicao = new Map(
+    itens.map((it, idx) => [it.numero_controle_pncp, idx]),
+  );
+  prontos.sort((a, b) =>
+    (posicao.get(a.licitacao.numero_controle_pncp) ?? 0) -
+    (posicao.get(b.licitacao.numero_controle_pncp) ?? 0)
+  );
+  return prontos;
 }
 
 Deno.serve(async (_req) => {
@@ -56,95 +154,85 @@ Deno.serve(async (_req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const pendentes = await lerMatchesPendentes(supabase);
-    const porPerfil = agruparPorPerfil(pendentes);
-    const inicioHoje = inicioDoDiaBrasilia();
+    const { data: lotesData, error: erroLotes } = await supabase.rpc(
+      "lotes_para_notificar",
+      {
+        p_max_perfis: MAX_PERFIS_POR_EXECUCAO,
+        p_detalhados: DETALHADOS_POR_EMAIL,
+      },
+    );
+    if (erroLotes) {
+      throw new Error(`Falha ao montar lotes: ${erroLotes.message}`);
+    }
+    const lotes = (lotesData ?? []) as Lote[];
 
     let emailsEnviados = 0;
-    let matchesNotificados = 0;
+    let matchesFechados = 0;
+    let resumosReusados = 0;
     const erros: Array<{ perfil_id: string; erro: string }> = [];
 
-    for (const [perfilId, matches] of porPerfil) {
+    for (const lote of lotes) {
       try {
-        // Teto diário por perfil: não ultrapassa MAX_LICITACOES_POR_DIA
-        // notificações no dia (o excedente fica no painel e sai amanhã).
-        const { count: jaHoje } = await supabase
-          .from("matches")
-          .select("id", { count: "exact", head: true })
-          .eq("perfil_id", perfilId)
-          .gte("notificado_em", inicioHoje);
-        const restanteHoje = MAX_LICITACOES_POR_DIA - (jaHoje ?? 0);
-        if (restanteHoje <= 0) continue;
-
-        const email = await buscarEmailDoUsuario(
-          supabase,
-          matches[0].perfis.user_id,
-        );
-
-        // Conta expirada não recebe alertas (os matches ficam aguardando; se
-        // assinar, voltam a ser notificados normalmente).
+        // Conta expirada não recebe alerta; os matches ficam aguardando e
+        // voltam ao ciclo se a pessoa assinar.
         const assinatura = await lerAssinatura(
           supabase,
-          matches[0].perfis.user_id,
-          email,
+          lote.user_id,
+          lote.email,
         );
-        if (assinatura.estado === "expirado" || assinatura.estado === "sem_conta") {
+        if (
+          assinatura.estado === "expirado" || assinatura.estado === "sem_conta"
+        ) {
           continue;
         }
 
-        // Gera os resumos item a item; um resumo que falhar fica para a
-        // próxima janela sem impedir os demais.
-        const limite = Math.min(MAX_MATCHES_POR_EMAIL, restanteHoje);
-        const itens: ItemEmail[] = [];
-        const idsIncluidos: string[] = [];
-        for (const match of matches.slice(0, limite)) {
-          try {
-            const resumo = await gerarResumo(match.licitacoes);
-            itens.push({ licitacao: match.licitacoes, resumo });
-            idsIncluidos.push(match.id);
-          } catch (erro) {
-            erros.push({
-              perfil_id: perfilId,
-              erro: `resumo (match ${match.id}): ${mensagemDe(erro)}`,
-            });
-          }
-        }
+        resumosReusados += lote.itens.filter((i) => i.resumo_ia).length;
+        const itens = await resumirItens(
+          supabase,
+          lote.itens,
+          erros,
+          lote.perfil_id,
+        );
         if (itens.length === 0) continue;
 
-        const { assunto, html } = montarEmailMatches(itens);
-        await enviarEmail(email, assunto, html);
+        const extras = Math.max(0, lote.validos - itens.length);
+        const { assunto, html } = montarEmailMatches(itens, extras);
+        await enviarEmail(lote.email, assunto, html);
         emailsEnviados++;
 
-        const { error } = await supabase
-          .from("matches")
-          .update({ notificado_em: new Date().toISOString() })
-          .in("id", idsIncluidos);
-        if (error) throw new Error(`gravar notificado_em: ${error.message}`);
-        matchesNotificados += idsIncluidos.length;
+        // Fecha o lote: todos os pendentes do perfil saem da fila, inclusive
+        // os não detalhados e os já encerrados.
+        const em = new Date().toISOString();
+        const { data: fechados, error: erroFechar } = await supabase.rpc(
+          "fechar_lote_notificado",
+          { p_perfil_id: lote.perfil_id, p_em: em },
+        );
+        if (erroFechar) throw new Error(`fechar lote: ${erroFechar.message}`);
+        matchesFechados += (fechados as number) ?? 0;
 
-        // Push (best-effort, complementa o email; não derruba o lote).
+        // Push complementa o email; falha aqui não derruba nada.
         try {
-          const n = idsIncluidos.length;
           await enviarPushUsuario(
             supabase,
-            matches[0].perfis.user_id,
-            n === 1
+            lote.user_id,
+            itens.length === 1
               ? "Nova licitação para o seu perfil"
-              : `${n} novas licitações para o seu perfil`,
+              : `${lote.validos} novas licitações para o seu perfil`,
             itens[0].licitacao.objeto_compra.slice(0, 120),
             "/painel",
           );
         } catch { /* push é complementar; ignora falha */ }
       } catch (erro) {
-        erros.push({ perfil_id: perfilId, erro: mensagemDe(erro) });
+        erros.push({ perfil_id: lote.perfil_id, erro: mensagemDe(erro) });
       }
     }
 
     const resumoExecucao = {
       funcao: "notificar",
-      matches_pendentes: pendentes.length,
+      lotes: lotes.length,
       emails_enviados: emailsEnviados,
-      matches_notificados: matchesNotificados,
+      matches_fechados: matchesFechados,
+      resumos_reusados: resumosReusados,
       erros,
       duracao_ms: Date.now() - inicio,
     };
@@ -162,53 +250,6 @@ Deno.serve(async (_req) => {
     });
   }
 });
-
-async function lerMatchesPendentes(
-  supabase: SupabaseClient,
-): Promise<MatchPendente[]> {
-  const { data, error } = await supabase
-    .from("matches")
-    .select(
-      `id, perfil_id,
-       licitacoes ( numero_controle_pncp, objeto_compra, informacao_complementar,
-         valor_total_estimado, data_abertura_proposta, data_encerramento_proposta,
-         orgao_razao_social, unidade_nome, uf, municipio_nome, modalidade_nome,
-         link_sistema_origem ),
-       perfis ( user_id )`,
-    )
-    .is("notificado_em", null)
-    .order("created_at", { ascending: true })
-    .limit(MAX_MATCHES_POR_EXECUCAO);
-
-  if (error) {
-    throw new Error(`Falha ao ler matches pendentes: ${error.message}`);
-  }
-  return (data ?? []) as unknown as MatchPendente[];
-}
-
-function agruparPorPerfil(
-  pendentes: MatchPendente[],
-): Map<string, MatchPendente[]> {
-  const porPerfil = new Map<string, MatchPendente[]>();
-  for (const match of pendentes) {
-    const lista = porPerfil.get(match.perfil_id) ?? [];
-    lista.push(match);
-    porPerfil.set(match.perfil_id, lista);
-  }
-  return porPerfil;
-}
-
-async function buscarEmailDoUsuario(
-  supabase: SupabaseClient,
-  userId: string,
-): Promise<string> {
-  const { data, error } = await supabase.auth.admin.getUserById(userId);
-  const email = data?.user?.email;
-  if (error || !email) {
-    throw new Error(`usuário ${userId} sem email (${error?.message ?? "vazio"})`);
-  }
-  return email;
-}
 
 function mensagemDe(erro: unknown): string {
   return erro instanceof Error ? erro.message : String(erro);
