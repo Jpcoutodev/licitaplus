@@ -29,7 +29,11 @@ import {
   listarArquivosContratacao,
 } from "../_shared/pncp/cliente.ts";
 import type { LicitacaoColetada } from "../_shared/pncp/tipos.ts";
-import { extrairTextoPdfBytes } from "../_shared/pdf.ts";
+import {
+  extrairTextoPdfBytes,
+  extrairTextoPdfFaixa,
+  MAX_CARACTERES_DOCUMENTO,
+} from "../_shared/pdf.ts";
 import { extrairTextoDocx, pareceZip } from "../_shared/docx.ts";
 import { unzipSync } from "npm:fflate@0.8.2";
 import {
@@ -51,6 +55,10 @@ const MAX_BASE64_PDF = 9_000_000;
 /** Limite de download de arquivo do PNCP para análise (editais escaneados
  *  chegam a dezenas de MB; a function tem memória para isso). */
 const MAX_BYTES_ARQUIVO_PNCP = 40_000_000;
+/** Teto de páginas de um PDF do PNCP. Acima disso a leitura exigiria dezenas
+ *  de idas e vindas — melhor recusar com franqueza do que arrastar o usuário
+ *  por dois minutos de barra de progresso. */
+const MAX_PAGINAS_PDF_PNCP = 400;
 /** Documento até este tamanho vai INTEIRO para a IA; acima, vira trechos.
  *  M3 comporta ~400k chars num pedido; 300k deixa margem para itens,
  *  favoritas, sumário e histórico. */
@@ -557,6 +565,17 @@ Deno.serve(async (req) => {
       resposta = await modoConversa(supabase, corpo, user.id);
     }
 
+    // Leitura de PDF grande chega em várias faixas: só a última conclui o
+    // documento. Debitar e registrar em cada faixa cobraria uma dúzia de
+    // análises por edital e encheria a telemetria de ruído.
+    let parcial = false;
+    try {
+      parcial = (await resposta.clone().json())?.terminou === false;
+    } catch {
+      parcial = false;
+    }
+    if (parcial) return resposta;
+
     if (ehAnaliseNova && resposta.status === 200 && assinatura.estado !== "admin") {
       await debitarAnalise(service, user.id);
     }
@@ -665,12 +684,24 @@ async function modoAnalisarArquivo(
     );
   }
 
+  const nomeArquivo = arquivo.titulo ??
+    `documento-${arquivo.sequencialDocumento}`;
+
+  // PDF direto: leitura em faixas de página, retomável. Zip e Word continuam
+  // de uma vez só — são bem menores e não estouram o orçamento de CPU.
+  if (ehPdf(download.bytes)) {
+    return await lerPdfEmFaixas(
+      supabase,
+      conversaId,
+      download.bytes,
+      nomeArquivo,
+      Number(corpo?.pagina_inicial) || 1,
+    );
+  }
+
   try {
     const extraido = await extrairTextoDeArquivo(download.bytes);
-    const nome = nomeComPacote(
-      arquivo.titulo ?? `documento-${arquivo.sequencialDocumento}`,
-      extraido.arquivos,
-    );
+    const nome = nomeComPacote(nomeArquivo, extraido.arquivos);
     const resumo = await gravarDocumentoNaConversa(
       supabase,
       conversaId,
@@ -678,7 +709,7 @@ async function modoAnalisarArquivo(
       extraido.texto,
       extraido.paginas,
     );
-    return respostaJson(resumo, 200);
+    return respostaJson({ ...resumo, terminou: true }, 200);
   } catch (erro) {
     if (erro instanceof Error && erro.message.startsWith("Falha ao")) throw erro;
     return respostaJson(
@@ -686,6 +717,98 @@ async function modoAnalisarArquivo(
       400,
     );
   }
+}
+
+/**
+ * Lê uma faixa de páginas do PDF e guarda o que leu em `documento_parcial`.
+ *
+ * O rascunho fica numa coluna própria para não encostar no documento vigente:
+ * quem já tinha um edital anexado continua com ele até a nova leitura
+ * terminar, e a junção dos dois acontece normalmente no final. Desistir no
+ * meio só deixa um rascunho, que a próxima tentativa sobrescreve.
+ */
+async function lerPdfEmFaixas(
+  supabase: ClienteSupabase,
+  conversaId: string,
+  bytes: Uint8Array,
+  nomeArquivo: string,
+  paginaInicial: number,
+): Promise<Response> {
+  let faixa;
+  try {
+    faixa = await extrairTextoPdfFaixa(bytes, paginaInicial);
+  } catch (erro) {
+    return respostaJson(
+      {
+        erro: erro instanceof Error
+          ? erro.message
+          : "não foi possível ler o PDF",
+      },
+      400,
+    );
+  }
+
+  if (faixa.totalPaginas > MAX_PAGINAS_PDF_PNCP) {
+    return respostaJson(
+      {
+        erro:
+          `o edital tem ${faixa.totalPaginas} páginas — acima do limite de ${MAX_PAGINAS_PDF_PNCP} para análise automática. Use o botão Baixar para abrir o arquivo.`,
+      },
+      400,
+    );
+  }
+
+  // Primeira faixa começa do zero; as seguintes emendam no rascunho.
+  let acumulado = "";
+  if (paginaInicial > 1) {
+    const { data } = await supabase
+      .from("conversas_ia")
+      .select("documento_parcial")
+      .eq("id", conversaId)
+      .maybeSingle();
+    acumulado = (data?.documento_parcial as string) ?? "";
+  }
+
+  const texto = (acumulado + (acumulado ? "\n" : "") + faixa.texto)
+    .slice(0, MAX_CARACTERES_DOCUMENTO);
+
+  if (faixa.proximaPagina !== null) {
+    const { error } = await supabase
+      .from("conversas_ia")
+      .update({ documento_parcial: texto })
+      .eq("id", conversaId);
+    if (error) {
+      throw new Error(`Falha ao gravar o documento: ${error.message}`);
+    }
+    return respostaJson({
+      terminou: false,
+      proxima_pagina: faixa.proximaPagina,
+      total_paginas: faixa.totalPaginas,
+      paginas_lidas: faixa.proximaPagina - 1,
+      caracteres_parciais: texto.length,
+    }, 200);
+  }
+
+  // Última faixa: agora sim indexa, resume, junta com anexo anterior se
+  // houver, e descarta o rascunho.
+  const resumo = await gravarDocumentoNaConversa(
+    supabase,
+    conversaId,
+    nomeArquivo,
+    texto.trim(),
+    faixa.totalPaginas,
+  );
+  await supabase
+    .from("conversas_ia")
+    .update({ documento_parcial: null })
+    .eq("id", conversaId);
+  return respostaJson({ ...resumo, terminou: true }, 200);
+}
+
+/** Assinatura "%PDF" no início do arquivo. */
+function ehPdf(bytes: Uint8Array): boolean {
+  return bytes.length > 4 && bytes[0] === 0x25 && bytes[1] === 0x50 &&
+    bytes[2] === 0x44 && bytes[3] === 0x46;
 }
 
 async function modoPdfAnexado(

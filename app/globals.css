@@ -2486,3 +2486,107 @@ main.container {
   }
   .lp-beneficio:hover .lp-beneficio-icone { transform: none; }
 }
+
+/* =========================================================
+   Leitura do edital (progresso da extração em faixas)
+   ========================================================= */
+
+.lendo-edital {
+  border: 1px solid #dbe4ff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  background:
+    radial-gradient(420px 160px at 100% 0%, rgba(37, 99, 235, 0.07), transparent 65%),
+    var(--superficie);
+  box-shadow: var(--sombra);
+}
+.lendo-edital-topo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.lendo-edital-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.lendo-edital-texto strong {
+  font-size: 15px;
+  color: #0d1626;
+}
+.lendo-edital-texto span {
+  font-size: 13px;
+}
+
+/* frase nova entra deslizando (a key remonta o nó a cada troca) */
+@keyframes lendo-frase-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.lendo-frase {
+  animation: lendo-frase-entra 0.45s ease both;
+}
+
+/* pilha de folhas sendo viradas */
+.lendo-edital-icone {
+  position: relative;
+  flex-shrink: 0;
+  width: 34px;
+  height: 42px;
+}
+.lendo-folha {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  border: 1.5px solid var(--primaria);
+  background: #fff;
+  transform-origin: left center;
+  animation: lendo-virar 2.4s ease-in-out infinite;
+}
+.lendo-folha:nth-child(2) { animation-delay: 0.8s; }
+.lendo-folha:nth-child(3) { animation-delay: 1.6s; }
+@keyframes lendo-virar {
+  0%, 60% { transform: rotateY(0deg); opacity: 1; }
+  85% { transform: rotateY(-150deg); opacity: 0.35; }
+  100% { transform: rotateY(-180deg); opacity: 0; }
+}
+
+.lendo-barra {
+  height: 6px;
+  margin-top: 14px;
+  border-radius: 999px;
+  background: #eef2f7;
+  overflow: hidden;
+}
+.lendo-barra-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gradiente-marca);
+  transition: width 0.5s ease;
+}
+/* fase de download: não há total de páginas ainda, então a barra apenas
+   percorre — indica atividade sem prometer uma porcentagem que não temos */
+.lendo-barra-indef {
+  display: block;
+  height: 100%;
+  width: 35%;
+  border-radius: inherit;
+  background: var(--gradiente-marca);
+  animation: lendo-indef 1.4s ease-in-out infinite;
+}
+@keyframes lendo-indef {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(320%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lendo-folha,
+  .lendo-barra-indef,
+  .lendo-frase {
+    animation: none;
+  }
+  .lendo-folha:nth-child(2),
+  .lendo-folha:nth-child(3) { opacity: 0; }
+}

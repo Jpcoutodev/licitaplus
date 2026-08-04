@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { criarClientNavegador } from "@/lib/supabase/client";
+import { LendoEdital, type ProgressoLeitura } from "../lendo-edital";
 
 interface OpcaoFavorita {
   licitacao_id: string;
@@ -38,10 +39,19 @@ interface DocumentoGravadoResposta {
   caracteres_totais: number;
   modo: "inteiro" | "trechos";
   erro?: string;
+  /** false quando o PDF ainda tem páginas a ler nesta leitura em faixas. */
+  terminou?: boolean;
+  proxima_pagina?: number;
+  total_paginas?: number;
+  paginas_lidas?: number;
 }
 
 /** Acima deste tamanho o servidor trabalha por trechos (mesmo valor de lá). */
 const LIMITE_DOCUMENTO_INTEIRO = 300_000;
+
+/** Teto de idas ao servidor por documento (o servidor recusa acima de 400
+ *  páginas; ~28 páginas por faixa deixa folga suficiente). */
+const MAX_FAIXAS_LEITURA = 40;
 
 /** PDF até ~6 MB (o texto extraído é limitado no servidor). */
 const MAX_BYTES_PDF = 6 * 1024 * 1024;
@@ -101,6 +111,11 @@ function ChatAnalise() {
   const [analisandoSequencial, setAnalisandoSequencial] = useState<
     number | null
   >(null);
+  const [progresso, setProgresso] = useState<ProgressoLeitura>({
+    totalPaginas: null,
+    paginasLidas: 0,
+    finalizando: false,
+  });
   const seletorArquivo = useRef<HTMLInputElement>(null);
   const fimDoChat = useRef<HTMLDivElement>(null);
   /** Licitação para a qual o anexo automático já foi tentado nesta sessão. */
@@ -275,31 +290,74 @@ function ChatAnalise() {
     });
   }
 
-  /** Baixa um arquivo do PNCP no servidor, extrai o texto e anexa à conversa. */
+  /**
+   * Lê um arquivo do PNCP e anexa à conversa.
+   *
+   * PDFs grandes chegam em faixas de página: a função responde
+   * `terminou: false` com a próxima página, e chamamos de novo até acabar.
+   * Isso existe porque extrair texto é CPU pura e as Edge Functions cortam a
+   * requisição em 2s de CPU — um edital de 228 páginas custa ~11s e morria
+   * calado antes de responder qualquer coisa.
+   */
   async function analisarArquivo(arquivo: ArquivoLicitacao) {
     if (analisandoSequencial !== null) return;
     setErro(null);
     setAnalisandoSequencial(arquivo.sequencialDocumento);
+    setProgresso({ totalPaginas: null, paginasLidas: 0, finalizando: false });
+
     try {
       const supabase = criarClientNavegador();
-      const { data, error } = await supabase.functions.invoke("analise-ia", {
-        body: {
-          acao: "analisar_arquivo",
-          licitacao_id: licitacaoId,
-          sequencial_documento: arquivo.sequencialDocumento,
-          conversa_id: await garantirConversa(),
-        },
-      });
-      if (error) {
-        throw new Error(
-          await mensagemDaFuncao(error, "não foi possível ler o arquivo"),
-        );
+      const conversa = await garantirConversa();
+      let pagina = 1;
+
+      // Teto de voltas: rede é imprevisível e um laço infinito na tela do
+      // usuário é pior que uma mensagem de erro.
+      for (let volta = 0; volta < MAX_FAIXAS_LEITURA; volta++) {
+        const { data, error } = await supabase.functions.invoke("analise-ia", {
+          body: {
+            acao: "analisar_arquivo",
+            licitacao_id: licitacaoId,
+            sequencial_documento: arquivo.sequencialDocumento,
+            conversa_id: conversa,
+            pagina_inicial: pagina,
+          },
+        });
+        if (error) {
+          throw new Error(
+            await mensagemDaFuncao(error, "não foi possível ler o arquivo"),
+          );
+        }
+
+        const resposta = data as DocumentoGravadoResposta;
+        if (resposta?.erro) throw new Error(resposta.erro);
+
+        if (resposta?.terminou === false) {
+          pagina = resposta.proxima_pagina ?? pagina;
+          setProgresso({
+            totalPaginas: resposta.total_paginas ?? null,
+            paginasLidas: resposta.paginas_lidas ?? 0,
+            finalizando: false,
+          });
+          // Última faixa costuma ser a mais lenta (indexação e resumo).
+          if (
+            resposta.total_paginas &&
+            pagina > resposta.total_paginas - 30
+          ) {
+            setProgresso((p) => ({ ...p, finalizando: true }));
+          }
+          continue;
+        }
+
+        if (!resposta?.nome) {
+          throw new Error("não foi possível ler o arquivo");
+        }
+        refletirDocumento(resposta);
+        return;
       }
-      const gravado = data as DocumentoGravadoResposta;
-      if (gravado?.erro || !gravado?.nome) {
-        throw new Error(gravado?.erro ?? "não foi possível ler o arquivo");
-      }
-      refletirDocumento(gravado);
+
+      throw new Error(
+        "o edital é longo demais e a leitura não terminou — use o botão Baixar para abrir o arquivo",
+      );
     } catch (excecao) {
       setErro(
         excecao instanceof Error
@@ -308,6 +366,7 @@ function ChatAnalise() {
       );
     } finally {
       setAnalisandoSequencial(null);
+      setProgresso({ totalPaginas: null, paginasLidas: 0, finalizando: false });
     }
   }
 
@@ -649,9 +708,7 @@ function ChatAnalise() {
               </button>
             </p>
           ) : analisandoSequencial !== null ? (
-            <p className="ajuda">
-              📎 Anexando o edital ao contexto da conversa automaticamente...
-            </p>
+            <LendoEdital progresso={progresso} />
           ) : (
             <p>
               <button
