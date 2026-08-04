@@ -2838,3 +2838,29 @@ main.container {
 .dash-lista li:last-child { border-bottom: none; }
 .dash-lista strong { font-size: 20px; min-width: 60px; }
 .dash-lista span { color: var(--texto-suave); font-size: 13.5px; }
+
+/* nome da empresa como gatilho da ficha (o botao "Abrir" fica fora da tela
+   em monitor comum, por causa do numero de colunas) */
+.leads-nome {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+.leads-nome:hover strong {
+  color: var(--primaria-escura);
+  text-decoration: underline;
+}
+.leads-nome-seta {
+  color: var(--primaria);
+  font-size: 12px;
+  line-height: 1.6;
+  flex-shrink: 0;
+}

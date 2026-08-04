@@ -143,13 +143,23 @@ export function LinhaLead({
             {lead.favorito ? "★" : "☆"}
           </button>
         </td>
+        {/* O nome abre a ficha: com 9 colunas o botão "Abrir" cai fora da tela
+            em monitor comum, e ninguém acha o que não vê. */}
         <td>
-          <strong>{lead.nome_fornecedor}</strong>
-          <br />
-          <span className="texto-suave" style={{ fontSize: 12 }}>
-            {lead.ni_fornecedor}
-            {lead.qtd_orgaos > 1 && ` · ${lead.qtd_orgaos} órgãos`}
-          </span>
+          <button type="button" className="leads-nome" onClick={aoAbrir}>
+            <span className="leads-nome-seta" aria-hidden>
+              {aberto ? "▾" : "▸"}
+            </span>
+            <span>
+              <strong>{lead.nome_fornecedor}</strong>
+              <br />
+              <span className="texto-suave" style={{ fontSize: 12 }}>
+                {lead.ni_fornecedor}
+                {lead.qtd_orgaos > 1 && ` · ${lead.qtd_orgaos} órgãos`}
+                {!lead.enriquecido_em && " · sem contato"}
+              </span>
+            </span>
+          </button>
         </td>
         <td style={{ whiteSpace: "nowrap" }}>
           {lead.porte
