@@ -97,13 +97,19 @@ async function resumirItens(
   itens: ItemLote[],
   erros: Array<{ perfil_id: string; erro: string }>,
   perfilId: string,
+  /** Cache da própria execução. Os lotes vêm de UMA consulta, então resumo_ia
+   *  chega nulo para todos os perfis da rodada; sem isso, uma licitação que
+   *  casa com 10 perfis seria resumida 10 vezes antes de o cache do banco
+   *  valer para alguma coisa. */
+  cacheRodada: Map<string, string>,
 ): Promise<ItemEmail[]> {
   const prontos: ItemEmail[] = [];
   const faltando: ItemLote[] = [];
 
   for (const item of itens) {
-    if (item.resumo_ia) {
-      prontos.push({ licitacao: licitacaoDoItem(item), resumo: item.resumo_ia });
+    const jaTem = item.resumo_ia ?? cacheRodada.get(item.licitacao_id);
+    if (jaTem) {
+      prontos.push({ licitacao: licitacaoDoItem(item), resumo: jaTem });
     } else {
       faltando.push(item);
     }
@@ -116,7 +122,9 @@ async function resumirItens(
         try {
           const licitacao = licitacaoDoItem(item);
           const resumo = await gerarResumo(licitacao);
-          // Grava na licitação: o próximo perfil que casar não paga de novo.
+          // Guarda nos dois níveis: no banco, para as próximas rodadas; na
+          // memória, para os demais perfis desta mesma execução.
+          cacheRodada.set(item.licitacao_id, resumo);
           await supabase.rpc("guardar_resumo_ia", {
             p_licitacao_id: item.licitacao_id,
             p_resumo: resumo,
@@ -169,6 +177,8 @@ Deno.serve(async (_req) => {
     let emailsEnviados = 0;
     let matchesFechados = 0;
     let resumosReusados = 0;
+    /** Resumos gerados nesta execução, compartilhados entre os perfis. */
+    const cacheRodada = new Map<string, string>();
     const erros: Array<{ perfil_id: string; erro: string }> = [];
 
     for (const lote of lotes) {
@@ -186,12 +196,15 @@ Deno.serve(async (_req) => {
           continue;
         }
 
-        resumosReusados += lote.itens.filter((i) => i.resumo_ia).length;
+        resumosReusados += lote.itens.filter((i) =>
+          i.resumo_ia || cacheRodada.has(i.licitacao_id)
+        ).length;
         const itens = await resumirItens(
           supabase,
           lote.itens,
           erros,
           lote.perfil_id,
+          cacheRodada,
         );
         if (itens.length === 0) continue;
 
