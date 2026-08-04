@@ -607,13 +607,6 @@ main.container {
   margin: 6px 0;
 }
 
-.chat-digitando {
-  align-self: flex-start;
-  color: var(--texto-suave);
-  font-size: 13.5px;
-  padding: 4px 8px;
-}
-
 .chat-entrada {
   display: flex;
   gap: 10px;
@@ -2579,6 +2572,24 @@ main.container {
 @keyframes lendo-indef {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(320%); }
+}
+
+/* variante compacta: dentro do chat, ao lado das mensagens */
+.lendo-edital--compacto {
+  padding: 10px 14px;
+  border-radius: 12px;
+  align-self: flex-start;
+  max-width: 320px;
+}
+.lendo-edital--compacto .lendo-edital-topo { gap: 10px; }
+.lendo-edital--compacto .lendo-edital-icone {
+  width: 20px;
+  height: 25px;
+}
+.lendo-edital--compacto .lendo-edital-texto strong { font-size: 13.5px; }
+.lendo-edital--compacto .lendo-barra {
+  height: 4px;
+  margin-top: 9px;
 }
 
 @media (prefers-reduced-motion: reduce) {

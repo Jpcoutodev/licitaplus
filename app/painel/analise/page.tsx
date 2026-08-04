@@ -6,7 +6,13 @@ import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { criarClientNavegador } from "@/lib/supabase/client";
-import { LendoEdital, type ProgressoLeitura } from "../lendo-edital";
+import {
+  EsperaIA,
+  FRASES_PENSANDO,
+  FRASES_RESUMO,
+  LendoEdital,
+  type ProgressoLeitura,
+} from "../espera-ia";
 
 interface OpcaoFavorita {
   licitacao_id: string;
@@ -731,19 +737,25 @@ function ChatAnalise() {
 
         {licitacaoId && (
           <div className="campo bloco-resumo">
-            <button
-              type="button"
-              className="botao"
-              disabled={pensando || gerandoResumo}
-              onClick={gerarResumoExecutivo}
-            >
-              {gerandoResumo ? "Gerando resumo..." : "📋 Resumo executivo"}
-            </button>
-            <p className="ajuda">
-              Gera um resumo estruturado do edital anexado (objeto, valores,
-              exigências, prazos, penalidades). Exige o edital no contexto e não
-              inventa dados.
-            </p>
+            {gerandoResumo ? (
+              <EsperaIA frases={FRASES_RESUMO} intervaloMs={3400} />
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="botao"
+                  disabled={pensando}
+                  onClick={gerarResumoExecutivo}
+                >
+                  📋 Resumo executivo
+                </button>
+                <p className="ajuda">
+                  Gera um resumo estruturado do edital anexado (objeto, valores,
+                  exigências, prazos, penalidades). Exige o edital no contexto e
+                  não inventa dados.
+                </p>
+              </>
+            )}
           </div>
         )}
 
@@ -797,7 +809,7 @@ function ChatAnalise() {
             </div>
           ))}
           {pensando && (
-            <p className="chat-digitando">A IA está analisando...</p>
+            <EsperaIA frases={FRASES_PENSANDO} compacto intervaloMs={2600} />
           )}
           <div ref={fimDoChat} />
         </div>
