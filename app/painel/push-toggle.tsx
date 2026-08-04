@@ -8,16 +8,23 @@ const VAPID = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 /** Ativa/desativa push (Web Push nativo) neste aparelho. */
 export function PushToggle() {
   const [suportado, setSuportado] = useState(true);
+  /** Chave VAPID ausente no build: é falha de configuração, não do navegador.
+   *  Antes os dois casos caíam na mesma mensagem e um deploy sem a env
+   *  aparecia para todo mundo como "seu navegador não suporta". */
+  const [semChave, setSemChave] = useState(false);
   const [ativo, setAtivo] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [msg, setMsg] = useState<{ erro?: string; ok?: string }>({});
 
   useEffect(() => {
+    if (!VAPID) {
+      setSemChave(true);
+      return;
+    }
     if (
       typeof window === "undefined" ||
       !("serviceWorker" in navigator) ||
-      !("PushManager" in window) ||
-      !VAPID
+      !("PushManager" in window)
     ) {
       setSuportado(false);
       return;
@@ -95,6 +102,16 @@ export function PushToggle() {
     } finally {
       setOcupado(false);
     }
+  }
+
+  if (semChave) {
+    return (
+      <p className="mensagem-erro" style={{ marginTop: 6 }}>
+        Notificações push estão fora do ar por configuração do servidor
+        (NEXT_PUBLIC_VAPID_PUBLIC_KEY ausente neste build). Os alertas por
+        email continuam funcionando normalmente.
+      </p>
+    );
   }
 
   if (!suportado) {
