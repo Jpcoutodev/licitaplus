@@ -31,6 +31,14 @@ const TAMANHO_PAGINA = 500;
 const ORCAMENTO_MS = 20_000;
 /** Teto de páginas por chamada, além do tempo. */
 const MAX_PAGINAS_POR_CHAMADA = 12;
+/**
+ * Retry curto de propósito. O padrão do cliente PNCP (60s × 2 tentativas)
+ * gasta ~121s numa única página morta — quase todo o tempo de parede da
+ * função, que então é encerrada sem responder e o painel recebe um erro
+ * opaco. Com 20s × 2, uma página que não volta custa ~42s e ainda sobra
+ * tempo para devolver o ponto de retomada.
+ */
+const RETRY_COLETA = { timeoutMs: 20_000, tentativas: 2 };
 
 function clientServico(): SupabaseClient {
   return createClient(
@@ -202,13 +210,25 @@ Deno.serve(async (req) => {
     let totalRegistros = 0;
     const nisTocados = new Set<string>();
 
+    let falhaPncp: string | null = null;
+
     while (paginas < MAX_PAGINAS_POR_CHAMADA) {
-      const pag = await buscarContratosPorPeriodo(
-        dataInicial,
-        dataFinal,
-        pagina,
-        TAMANHO_PAGINA,
-      );
+      let pag;
+      try {
+        pag = await buscarContratosPorPeriodo(
+          dataInicial,
+          dataFinal,
+          pagina,
+          TAMANHO_PAGINA,
+          RETRY_COLETA,
+        );
+      } catch (erro) {
+        // O PNCP cai com alguma frequência (504 em toda a rota, não só nesta
+        // consulta). Não é bug nosso e não pode virar 500 opaco: paramos aqui,
+        // devolvemos o ponto de retomada e o painel oferece continuar.
+        falhaPncp = erro instanceof Error ? erro.message : String(erro);
+        break;
+      }
       totalPaginas = pag.totalPaginas;
       totalRegistros = pag.totalRegistros;
       lidos += pag.itens.length;
@@ -236,7 +256,7 @@ Deno.serve(async (req) => {
     }
 
     const empresas = await reagregar(service, [...nisTocados]);
-    const terminou = pagina > totalPaginas;
+    const terminou = !falhaPncp && pagina > totalPaginas;
 
     console.log(JSON.stringify({
       funcao: "coletar-leads",
@@ -245,12 +265,19 @@ Deno.serve(async (req) => {
       lidos,
       gravados,
       empresas,
+      falha_pncp: falhaPncp,
       proxima_pagina: terminou ? null : pagina,
       duracao_ms: Date.now() - inicioReq,
     }));
 
+    // Status 200 mesmo com falha do PNCP: o supabase-js engole o corpo em
+    // respostas não-2xx, e o painel ficaria sem a mensagem de verdade.
     return respostaJson({
       terminou,
+      pncp_indisponivel: Boolean(falhaPncp),
+      aviso: falhaPncp
+        ? "O PNCP não respondeu (a API deles cai com alguma frequência). O que já foi lido está salvo — dá para continuar de onde parou."
+        : null,
       proxima_pagina: terminou ? null : pagina,
       total_paginas: totalPaginas,
       total_registros: totalRegistros,

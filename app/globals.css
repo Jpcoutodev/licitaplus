@@ -2724,3 +2724,101 @@ main.container {
   color: #fff;
 }
 .leads-status--descartado { color: var(--texto-suave); background: var(--fundo); }
+
+/* abas internas da página de leads */
+.leads-abas {
+  display: flex;
+  gap: 4px;
+  margin: 20px 0 14px;
+  border-bottom: 1px solid var(--borda);
+}
+.leads-aba {
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.leads-aba:hover { color: var(--texto); }
+.leads-aba--ativa {
+  color: var(--primaria-escura);
+  border-bottom-color: var(--primaria);
+}
+
+/* estrela de favorito na lista */
+.leads-estrela {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--borda);
+  padding: 2px;
+  transition: transform 0.15s ease, color 0.2s ease;
+}
+.leads-estrela:hover { transform: scale(1.2); color: var(--ambar); }
+.leads-estrela--ativa { color: var(--ambar); }
+
+/* porte da empresa */
+.leads-porte {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--borda);
+}
+.leads-porte--ME { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+.leads-porte--EPP { background: #eff6ff; border-color: #c7d7fb; color: #1d4ed8; }
+.leads-porte--Demais { background: var(--fundo); color: var(--texto-suave); }
+
+/* dashboard */
+.dash-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+.dash-barras { display: flex; flex-direction: column; gap: 9px; }
+.dash-barra-linha {
+  display: grid;
+  grid-template-columns: 110px 1fr 54px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+}
+.dash-barra-rotulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-barra-trilho {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--fundo);
+  overflow: hidden;
+}
+.dash-barra-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gradiente-marca);
+  transition: width 0.4s ease;
+}
+.dash-barra-num { text-align: right; }
+
+.dash-lista { list-style: none; padding: 0; margin: 14px 0 0; }
+.dash-lista li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--borda);
+}
+.dash-lista li:last-child { border-bottom: none; }
+.dash-lista strong { font-size: 20px; min-width: 60px; }
+.dash-lista span { color: var(--texto-suave); font-size: 13.5px; }

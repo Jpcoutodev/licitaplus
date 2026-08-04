@@ -203,6 +203,7 @@ export async function buscarContratosPorPeriodo(
   dataFinal: string,
   pagina: number,
   tamanhoPagina = 500,
+  retry: { timeoutMs?: number; tentativas?: number } = RETRY_PNCP,
 ): Promise<PaginaContratos> {
   const url = new URL(`${urlBasePncp()}/v1/contratos`);
   url.searchParams.set("dataInicial", dataInicial);
@@ -210,7 +211,7 @@ export async function buscarContratosPorPeriodo(
   url.searchParams.set("pagina", String(pagina));
   url.searchParams.set("tamanhoPagina", String(tamanhoPagina));
 
-  const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
+  const resposta = await fetchWithRetry(url, {}, retry);
 
   // 204 = período sem contratos.
   if (resposta.status === 204) {
