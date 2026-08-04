@@ -1,19 +1,45 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { criarClientNavegador } from "@/lib/supabase/client";
 import { Logo } from "../logo";
 
+/** Mensagens que o retorno da confirmação de email pode trazer na query. */
+const ERROS_DE_LINK: Record<string, string> = {
+  link_invalido:
+    "O link de confirmação está incompleto. Peça um novo cadastro ou entre com email e senha.",
+  link_expirado:
+    "O link de confirmação expirou ou já foi usado. Entre com email e senha.",
+  confirmado_outro_local:
+    "Seu email foi confirmado, mas o link foi aberto em outro navegador. Entre com email e senha para continuar.",
+};
+
 export default function PaginaLogin() {
+  return (
+    <Suspense fallback={null}>
+      <Conteudo />
+    </Suspense>
+  );
+}
+
+function Conteudo() {
   const roteador = useRouter();
+  const parametros = useSearchParams();
   const [modo, setModo] = useState<"entrar" | "cadastrar">("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  // Erro vindo do /auth/callback ou /auth/confirm.
+  useEffect(() => {
+    const codigo = parametros.get("erro");
+    if (!codigo) return;
+    setErro(ERROS_DE_LINK[codigo] ?? decodeURIComponent(codigo));
+  }, [parametros]);
 
   async function aoEnviar(evento: React.FormEvent) {
     evento.preventDefault();
@@ -27,6 +53,11 @@ export default function PaginaLogin() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password: senha,
+          options: {
+            // Sem isso o Supabase usa a Site URL do projeto — que apontava
+            // para uma rota inexistente e derrubava a confirmação em 404.
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+          },
         });
         if (error) throw error;
         if (data.session) {
