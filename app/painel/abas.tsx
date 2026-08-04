@@ -109,6 +109,29 @@ const ABA_METRICAS: Aba = {
   ),
 };
 
-export function abasDoUsuario(admin: boolean): Aba[] {
-  return admin ? [...ABAS, ABA_METRICAS] : ABAS;
+/** Prospecção interna. Mora em /admin, fora do fluxo do cliente. */
+const ABA_LEADS: Aba = {
+  rota: "/admin/leads",
+  nome: "Leads",
+  curto: "Leads",
+  icone: (
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M19 8v6M22 11h-6" />
+    </>
+  ),
+};
+
+/**
+ * Abas visíveis para o usuário.
+ *
+ * `internas` traz as ferramentas da equipe (Métricas e Leads). A barra
+ * inferior do celular passa `false`: com elas seriam 8 itens espremidos numa
+ * tela de 375px, e as duas são de uso em desktop — tabela larga, exportação,
+ * edição de ficha. No celular continuam acessíveis pela URL.
+ */
+export function abasDoUsuario(admin: boolean, internas = true): Aba[] {
+  if (!admin || !internas) return ABAS;
+  return [...ABAS, ABA_METRICAS, ABA_LEADS];
 }

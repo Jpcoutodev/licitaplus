@@ -7,7 +7,8 @@ import { abasDoUsuario, Icone } from "./abas";
 /** Barra de navegação inferior (só no celular) — estilo app. */
 export function BottomNav({ admin = false }: { admin?: boolean }) {
   const rotaAtual = usePathname();
-  const abas = abasDoUsuario(admin);
+  // Sem as abas internas: no celular elas só espremeriam as do cliente.
+  const abas = abasDoUsuario(admin, false);
 
   return (
     <nav className="bottom-nav" aria-label="Navegação">
