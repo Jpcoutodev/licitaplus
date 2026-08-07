@@ -258,6 +258,7 @@ main.container {
   box-shadow: var(--sombra);
   padding: 22px;
   margin-bottom: 16px;
+  overflow: hidden;
 }
 
 .grade-3 {
@@ -610,15 +611,23 @@ main.container {
 .chat-entrada {
   display: flex;
   gap: 10px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .chat-entrada input {
   flex: 1;
+  min-width: 0;
   padding: 11px 14px;
   border: 1px solid var(--borda);
   border-radius: 10px;
   font-size: 15px;
   font-family: inherit;
+  box-sizing: border-box;
+}
+
+.chat-entrada .botao {
+  flex-shrink: 0;
 }
 
 .chat-entrada input:focus {
