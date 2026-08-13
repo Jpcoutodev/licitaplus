@@ -9,8 +9,11 @@ export const metadata = { robots: { index: false, follow: false } };
  * Área interna da equipe — fora do fluxo do cliente de propósito.
  *
  * O portão é este layout (sessão + tabela admins) e, no banco, cada função de
- * leads confere admin outra vez. Redundância intencional: se algum dia esta
+ * leads confere a equipe outra vez. Redundância intencional: se algum dia esta
  * rota vazar, o banco continua fechado.
+ *
+ * Testador entra aqui (Leads faz parte do teste), mas não recebe o atalho de
+ * Métricas — lá estão os números do negócio, e o banco também recusa.
  */
 export default async function LayoutAdmin({
   children,
@@ -23,12 +26,13 @@ export default async function LayoutAdmin({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: admin } = await supabase
+  const { data: equipe } = await supabase
     .from("admins")
-    .select("email")
+    .select("papel")
     .eq("email", user.email ?? "")
     .maybeSingle();
-  if (!admin) redirect("/painel");
+  if (!equipe) redirect("/painel");
+  const ehAdmin = equipe.papel !== "testador";
 
   return (
     <div className="admin-area">
@@ -37,10 +41,12 @@ export default async function LayoutAdmin({
           <Link href="/painel" aria-label="SentinelaGov">
             <Logo tamanho={26} />
           </Link>
-          <span className="etiqueta admin-etiqueta">Interno · equipe</span>
+          <span className="etiqueta admin-etiqueta">
+            {ehAdmin ? "Interno · equipe" : "Interno · testador"}
+          </span>
           <nav className="admin-nav">
             <Link href="/admin/leads">Leads</Link>
-            <Link href="/painel/metricas">Métricas</Link>
+            {ehAdmin && <Link href="/painel/metricas">Métricas</Link>}
             <Link href="/painel">Voltar ao painel</Link>
           </nav>
         </div>

@@ -89,7 +89,8 @@ export default function PaginaChamados() {
   const [respondendo, setRespondendo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  // Identidade + se é admin.
+  // Identidade + se é admin. Testador não entra no modo administração: os
+  // chamados são de clientes reais, e o banco (eh_admin) também recusa.
   useEffect(() => {
     async function iniciar() {
       const supabase = criarClientNavegador();
@@ -100,10 +101,10 @@ export default function PaginaChamados() {
       if (user?.email) {
         const { data } = await supabase
           .from("admins")
-          .select("email")
+          .select("papel")
           .eq("email", user.email)
           .maybeSingle();
-        setSouAdmin(Boolean(data));
+        setSouAdmin(data?.papel === "admin");
       }
     }
     void iniciar();

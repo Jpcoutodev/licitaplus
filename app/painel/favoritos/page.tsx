@@ -19,18 +19,24 @@ export default async function PaginaFavoritos() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data, error } = await supabase
-    .from("favoritos")
-    .select(
-      `id,
+  const [{ data, error }, { data: participacoes }] = await Promise.all([
+    supabase
+      .from("favoritos")
+      .select(
+        `id,
        licitacoes ( id, numero_controle_pncp, objeto_compra,
          valor_total_estimado, data_encerramento_proposta,
          orgao_razao_social, municipio_nome, uf, modalidade_nome,
          link_sistema_origem )`,
-    )
-    .order("created_at", { ascending: false });
+      )
+      .order("created_at", { ascending: false }),
+    supabase.from("participacoes").select("licitacao_id"),
+  ]);
 
   const lista = (data ?? []) as unknown as FavoritoComLicitacao[];
+  const participando = new Set(
+    (participacoes ?? []).map((p) => p.licitacao_id as string),
+  );
 
   return (
     <>
@@ -65,6 +71,7 @@ export default async function PaginaFavoritos() {
           key={favorito.id}
           licitacao={favorito.licitacoes}
           favoritoId={favorito.id}
+          participando={participando.has(favorito.licitacoes.id)}
           mostrarAnalise
         />
       ))}

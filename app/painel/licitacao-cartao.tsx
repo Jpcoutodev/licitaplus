@@ -1,6 +1,7 @@
 import { AnalisarBotao } from "./analisar-botao";
 import { FavoritoBotao } from "./favorito-botao";
 import { OcultarBotao } from "./ocultar-botao";
+import { ParticiparBotao } from "./participar-botao";
 
 export interface LicitacaoCartaoDados {
   id: string;
@@ -44,6 +45,7 @@ export function linkPaginaPncp(numeroControle: string): string | null {
 export function LicitacaoCartao({
   licitacao,
   favoritoId,
+  participando = false,
   nova = false,
   mostrarAnalise = false,
   matchId = null,
@@ -51,6 +53,8 @@ export function LicitacaoCartao({
 }: {
   licitacao: LicitacaoCartaoDados;
   favoritoId: string | null;
+  /** true = já está na aba Licitando (o botão vira atalho para lá). */
+  participando?: boolean;
   nova?: boolean;
   mostrarAnalise?: boolean;
   /** Quando presente, mostra a ação "Ocultar"/"Reexibir" (usa matches.oculto). */
@@ -86,6 +90,7 @@ export function LicitacaoCartao({
         {l.orgao_razao_social ?? "não informado"}
       </p>
       <p style={{ marginTop: 12, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+        <ParticiparBotao licitacaoId={l.id} participando={participando} />
         {mostrarAnalise && (
           <AnalisarBotao licitacaoId={l.id} jaFavorita={Boolean(favoritoId)} />
         )}

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { IconeSair, NavPainel } from "./nav";
 import { BottomNav } from "./bottom-nav";
+import { MenuMobile } from "./menu-mobile";
+import type { Papel } from "./abas";
 import { InstalarApp } from "./instalar";
 import { Logo, MarcaLogo } from "../logo";
 import { criarClientServidor } from "@/lib/supabase/server";
@@ -21,8 +23,9 @@ export const metadata: Metadata = {
 export default async function LayoutPainel({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // Descobre se o usuário é admin (só ele vê a aba Métricas). A RLS de
-  // `admins` deixa cada um ler apenas a própria linha.
+  // Descobre o papel do usuário: admin vê tudo, testador vê tudo menos
+  // Métricas, cliente não vê nenhuma aba interna. A RLS de `admins` deixa cada
+  // um ler apenas a própria linha.
   const supabase = await criarClientServidor();
   const {
     data: { user },
@@ -69,14 +72,14 @@ export default async function LayoutPainel({
     }
   }
 
-  let ehAdmin = false;
+  let papel: Papel = "cliente";
   if (user?.email) {
     const { data } = await supabase
       .from("admins")
-      .select("email")
+      .select("papel")
       .eq("email", user.email)
       .maybeSingle();
-    ehAdmin = Boolean(data);
+    if (data) papel = data.papel === "testador" ? "testador" : "admin";
   }
 
   return (
@@ -91,7 +94,7 @@ export default async function LayoutPainel({
           </span>
         </Link>
 
-        <NavPainel admin={ehAdmin} />
+        <NavPainel papel={papel} />
 
         <div className="sidebar-rodape">
           <div className="conta-chip" title={user?.email ?? ""}>
@@ -119,11 +122,13 @@ export default async function LayoutPainel({
             <Logo tamanho={28} />
           </Link>
           {nomeEmpresa && <span className="topo-empresa">{nomeEmpresa}</span>}
-          <form action="/auth/sair" method="post">
-            <button type="submit" className="botao-fantasma">
-              Sair
-            </button>
-          </form>
+          {/* Sair mora dentro do menu, junto com as abas que não cabem na
+              barra inferior. */}
+          <MenuMobile
+            papel={papel}
+            nomeEmpresa={nomeEmpresa}
+            email={user?.email ?? null}
+          />
         </header>
 
         <main className="container">
@@ -146,7 +151,7 @@ export default async function LayoutPainel({
       </div>
 
       {/* Navegação inferior só no celular */}
-      <BottomNav admin={ehAdmin} />
+      <BottomNav papel={papel} />
     </div>
   );
 }

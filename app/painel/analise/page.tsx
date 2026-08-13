@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { criarClientNavegador } from "@/lib/supabase/client";
+import { ParticiparBotao } from "../participar-botao";
 import {
   EsperaIA,
   FRASES_PENSANDO,
@@ -102,6 +103,7 @@ function ChatAnalise() {
   const preSelecionada = parametros.get("licitacao");
 
   const [favoritas, setFavoritas] = useState<OpcaoFavorita[]>([]);
+  const [participando, setParticipando] = useState<Set<string>>(new Set());
   const [licitacaoId, setLicitacaoId] = useState<string>(preSelecionada ?? "");
   const [conversaId, setConversaId] = useState<string | null>(null);
   const [mensagens, setMensagens] = useState<MensagemChat[]>([]);
@@ -143,6 +145,14 @@ function ChatAnalise() {
         rotulo: f.licitacoes.objeto_compra.slice(0, 90),
       }));
       setFavoritas(opcoes);
+
+      // Para o botão Participar saber se esta licitação já está em Licitando.
+      const { data: participacoes } = await supabase
+        .from("participacoes")
+        .select("licitacao_id");
+      setParticipando(
+        new Set((participacoes ?? []).map((p) => p.licitacao_id as string)),
+      );
     }
     void carregarFavoritas();
   }, []);
@@ -600,15 +610,23 @@ function ChatAnalise() {
             licitação.
           </p>
         </div>
-        {mensagens.length > 0 && (
-          <button
-            type="button"
-            className="botao botao-secundario"
-            onClick={limparConversa}
-          >
-            Limpar conversa
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {licitacaoId && (
+            <ParticiparBotao
+              licitacaoId={licitacaoId}
+              participando={participando.has(licitacaoId)}
+            />
+          )}
+          {mensagens.length > 0 && (
+            <button
+              type="button"
+              className="botao botao-secundario"
+              onClick={limparConversa}
+            >
+              Limpar conversa
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="cartao">

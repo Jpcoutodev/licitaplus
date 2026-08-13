@@ -120,6 +120,7 @@ export default async function PaginaPainel({
     { data: matches, error, count },
     { data: favoritos },
     { count: qtdOcultas },
+    { data: participacoes },
   ] = await Promise.all([
     supabase.from("perfis").select("id, ativo").limit(1),
     consultaMatches(),
@@ -128,6 +129,7 @@ export default async function PaginaPainel({
       .from("matches")
       .select("id", { count: "exact", head: true })
       .eq("oculto", true),
+    supabase.from("participacoes").select("licitacao_id"),
   ]);
 
   const lista = (matches ?? []) as unknown as LinhaPainel[];
@@ -142,6 +144,9 @@ export default async function PaginaPainel({
   const excedeuTeto = total > MAX_PAGINAS * PAGINA_TAMANHO;
   const favoritoPorLicitacao = new Map(
     (favoritos ?? []).map((f) => [f.licitacao_id as string, f.id as string]),
+  );
+  const participando = new Set(
+    (participacoes ?? []).map((p) => p.licitacao_id as string),
   );
 
   /** Monta o link de uma página preservando busca/filtro/ordem. */
@@ -286,6 +291,7 @@ export default async function PaginaPainel({
           key={match.id}
           licitacao={paraCartao(match)}
           favoritoId={favoritoPorLicitacao.get(match.licitacao_id) ?? null}
+          participando={participando.has(match.licitacao_id)}
           nova={match.notificado_em === null}
           mostrarAnalise
           matchId={match.id}

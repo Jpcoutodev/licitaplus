@@ -23,6 +23,11 @@ export interface Aba {
   nome: string;
   curto: string;
   icone: React.ReactNode;
+  /**
+   * Aparece na barra inferior do celular. Cabem cinco com o rótulo legível numa
+   * tela de 375px; o resto vive no menu ☰ do topo, que lista tudo.
+   */
+  barra?: boolean;
 }
 
 const ABAS: Aba[] = [
@@ -30,6 +35,7 @@ const ABAS: Aba[] = [
     rota: "/painel",
     nome: "Painel",
     curto: "Painel",
+    barra: true,
     icone: (
       <>
         <rect x="3" y="3" width="7" height="9" rx="1.5" />
@@ -43,6 +49,7 @@ const ABAS: Aba[] = [
     rota: "/painel/perfil",
     nome: "Perfil de busca",
     curto: "Perfil",
+    barra: true,
     icone: (
       <>
         <circle cx="11" cy="11" r="7" />
@@ -54,6 +61,7 @@ const ABAS: Aba[] = [
     rota: "/painel/favoritos",
     nome: "Favoritos",
     curto: "Favoritos",
+    barra: true,
     icone: (
       <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
     ),
@@ -62,10 +70,24 @@ const ABAS: Aba[] = [
     rota: "/painel/analise",
     nome: "Análise IA",
     curto: "IA",
+    barra: true,
     icone: (
       <>
         <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z" />
         <path d="M9.5 11.5h.01M13 11.5h.01M16.5 11.5h.01" strokeWidth="2.4" />
+      </>
+    ),
+  },
+  {
+    rota: "/painel/licitando",
+    nome: "Licitando",
+    curto: "Licitando",
+    barra: true,
+    icone: (
+      <>
+        <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+        <path d="M8 3v3M16 3v3M3 10h18" />
+        <path d="m8.8 14.8 2 2 3.9-3.9" />
       </>
     ),
   },
@@ -124,14 +146,27 @@ const ABA_LEADS: Aba = {
 };
 
 /**
- * Abas visíveis para o usuário.
- *
- * `internas` traz as ferramentas da equipe (Métricas e Leads). A barra
- * inferior do celular passa `false`: com elas seriam 8 itens espremidos numa
- * tela de 375px, e as duas são de uso em desktop — tabela larga, exportação,
- * edição de ficha. No celular continuam acessíveis pela URL.
+ * Papel da conta no sistema (espelha `admins.papel`, mais o cliente comum).
+ * O testador usa tudo sem limites, menos Métricas — os números do negócio.
  */
-export function abasDoUsuario(admin: boolean, internas = true): Aba[] {
-  if (!admin || !internas) return ABAS;
+export type Papel = "cliente" | "testador" | "admin";
+
+/**
+ * Todas as abas do usuário, na ordem do menu. É o que a sidebar do desktop e o
+ * menu ☰ do celular mostram — inclusive as internas, que antes no celular só
+ * eram alcançáveis digitando a URL.
+ */
+export function abasDoUsuario(papel: Papel): Aba[] {
+  if (papel === "cliente") return ABAS;
+  if (papel === "testador") return [...ABAS, ABA_LEADS];
   return [...ABAS, ABA_METRICAS, ABA_LEADS];
+}
+
+/**
+ * Abas da barra inferior do celular: as cinco do dia a dia. Chamados e
+ * Configurações (e as internas, que são de uso em desktop — tabela larga,
+ * exportação, edição de ficha) ficam no menu ☰.
+ */
+export function abasDaBarra(papel: Papel): Aba[] {
+  return abasDoUsuario(papel).filter((aba) => aba.barra);
 }

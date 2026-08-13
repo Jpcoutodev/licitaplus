@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { abasDoUsuario, Icone } from "./abas";
+import { abasDaBarra, Icone, type Papel } from "./abas";
 
 /** Barra de navegação inferior (só no celular) — estilo app. */
-export function BottomNav({ admin = false }: { admin?: boolean }) {
+export function BottomNav({ papel = "cliente" }: { papel?: Papel }) {
   const rotaAtual = usePathname();
-  // Sem as abas internas: no celular elas só espremeriam as do cliente.
-  const abas = abasDoUsuario(admin, false);
+  // Só as cinco do dia a dia; o resto está no menu ☰ do topo.
+  const abas = abasDaBarra(papel);
 
   return (
     <nav className="bottom-nav" aria-label="Navegação">

@@ -16,6 +16,7 @@ const ROTULO_PLANO: Record<string, string> = {
   essencial: "Essencial",
   profissional: "Profissional",
   admin: "Administrador",
+  testador: "Testador",
 };
 
 function dataBr(iso: string | null): string {
@@ -51,9 +52,9 @@ export default async function PaginaAssinatura({
   const ehAdmin = ass.estado === "admin";
   const ehTrial = ass.estado === "trial";
   const ehAtivo = ass.estado === "ativo";
-  const rotulo = ehAdmin
-    ? "Administrador"
-    : ROTULO_PLANO[ass.plano] ?? ass.plano;
+  // Para a equipe, minha_assinatura() devolve o papel em `plano` ('admin' ou
+  // 'testador') — daí o rótulo sair da mesma tabela dos planos pagos.
+  const rotulo = ROTULO_PLANO[ass.plano] ?? ass.plano;
 
   const diasRestantes = ass.trial_fim
     ? Math.max(
@@ -117,7 +118,10 @@ export default async function PaginaAssinatura({
           )}
         </p>
         <p className="texto-suave">
-          {ehAdmin && "Conta administradora — sem limites de uso."}
+          {ehAdmin &&
+            (ass.plano === "testador"
+              ? "Conta de testador — sem limites de uso."
+              : "Conta administradora — sem limites de uso.")}
           {ehTrial &&
             `Seu teste grátis termina em ${diasRestantes} ${diasRestantes === 1 ? "dia" : "dias"} (${dataBr(ass.trial_fim)}).`}
           {ehAtivo &&

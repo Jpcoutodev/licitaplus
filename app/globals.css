@@ -22,6 +22,9 @@
   --sucesso: #047857;
   --sucesso-fundo: #ecfdf5;
   --ambar: #d97706;
+  /* Licitando: azul = abre o recebimento de propostas, âmbar = encerra. */
+  --abertura: #2563eb;
+  --encerramento: #d97706;
   --raio: 14px;
   --sombra: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
   --sombra-alta: 0 10px 30px rgba(16, 24, 40, 0.1);
@@ -3034,4 +3037,316 @@ main.container {
   .leads-tabela td:nth-child(2),
   .leads-tabela th:nth-child(2) { max-width: 220px; }
   .leads-tabela { font-size: 13.5px; }
+}
+
+/* ---------- Licitando: calendário + acompanhamento ---------- */
+
+.calendario { padding: 18px; }
+
+.calendario-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.calendario-topo strong { font-size: 15.5px; }
+
+.botao-mes {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--texto-suave);
+  font-family: inherit;
+}
+.botao-mes:hover { background: var(--fundo); color: var(--texto); }
+
+.calendario-grade {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendario-cabecalho {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--texto-suave);
+  padding-bottom: 4px;
+}
+
+.calendario-dia {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--texto);
+}
+.calendario-dia:disabled { cursor: default; color: var(--texto-suave); }
+.calendario-dia.calendario-fora { opacity: 0.35; }
+.calendario-marcado { background: var(--fundo); border-color: var(--borda); }
+.calendario-marcado:hover { border-color: var(--primaria); }
+.calendario-hoje { box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.35); }
+.calendario-escolhido,
+.calendario-escolhido:hover {
+  background: var(--primaria);
+  border-color: var(--primaria);
+  color: #fff;
+}
+
+.calendario-pontos {
+  display: flex;
+  gap: 3px;
+  min-height: 6px;
+}
+
+.ponto {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.ponto-abertura { background: var(--abertura); }
+.ponto-encerramento { background: var(--encerramento); }
+.calendario-escolhido .ponto { box-shadow: 0 0 0 1.5px #fff; }
+
+.calendario-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
+  font-size: 12.5px;
+  color: var(--texto-suave);
+}
+.calendario-legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cabecalho-lista-licitando {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 24px 0 12px;
+}
+.cabecalho-lista-licitando h2 { font-size: 17px; }
+
+/* prazos no cartão: a cor do ponto amarra com o calendário */
+.prazos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+}
+.prazo {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.prazo .ponto { margin-top: 6px; }
+.prazo-abertura strong { color: var(--abertura); }
+.prazo-encerramento strong { color: #b45309; }
+
+.acoes-licitando {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.campo-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.campo-status select {
+  padding: 7px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: var(--superficie);
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--texto);
+}
+.campo-status select:focus {
+  outline: none;
+  border-color: var(--primaria);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* etiqueta de status da participação */
+.status-acompanhando { background: var(--primaria-suave); color: var(--primaria-escura); border-color: transparent; }
+.status-proposta_enviada { background: #fef3c7; color: #b45309; border-color: transparent; }
+.status-ganhei { background: #dcfce7; color: var(--verde-escuro); border-color: transparent; }
+.status-perdi { background: #fee2e2; color: var(--erro); border-color: transparent; }
+.status-desisti { background: #f1f5f9; color: #64748b; border-color: transparent; }
+
+.botao-remover-participacao {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--texto-suave);
+}
+.botao-remover-participacao:hover { color: var(--erro); text-decoration: underline; }
+.botao-remover-participacao:disabled { opacity: 0.6; cursor: default; }
+
+/* botão Participar nos cartões (irmão do "Analisar com IA", em outro tom) */
+.botao-participar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--texto);
+  background: var(--superficie);
+  transition: transform 0.12s, box-shadow 0.15s, border-color 0.15s, color 0.15s;
+}
+.botao-participar:hover {
+  border-color: var(--verde-escuro);
+  color: var(--verde-escuro);
+  transform: translateY(-1px);
+}
+.botao-participar:active { transform: translateY(0); }
+.botao-participar:disabled { opacity: 0.65; cursor: default; transform: none; }
+.botao-participar.ativo {
+  background: var(--sucesso-fundo);
+  border-color: transparent;
+  color: var(--sucesso);
+}
+.botao-participar svg { flex-shrink: 0; }
+
+/* ---------- menu ☰ do celular ---------- */
+
+.botao-menu {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--borda);
+  border-radius: 11px;
+  background: var(--superficie);
+  color: var(--texto);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.botao-menu:hover { background: var(--fundo); }
+
+.menu-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(8, 15, 28, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.menu-gaveta {
+  width: min(300px, 84vw);
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 12px calc(16px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(130% 45% at 20% 0%, rgba(34, 197, 94, 0.16), transparent 60%),
+    linear-gradient(180deg, #0d1626 0%, #0a1120 100%);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  animation: menu-entra 0.16s ease-out;
+}
+
+@keyframes menu-entra {
+  from { transform: translateX(14px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.menu-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 6px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 10px;
+}
+.menu-empresa {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: #fff;
+  font-size: 14px;
+}
+.menu-empresa strong { line-height: 1.3; }
+.menu-empresa .texto-suave {
+  color: #9fb0c9;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.menu-gaveta .botao-menu {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  width: 34px;
+  height: 34px;
+}
+.menu-gaveta .botao-menu:hover { background: rgba(255, 255, 255, 0.16); }
+
+.menu-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.menu-rodape {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+@media (max-width: 820px) {
+  .botao-menu { display: inline-flex; }
+  .calendario { padding: 14px 12px; }
+  .calendario-dia { min-height: 40px; font-size: 13px; }
+  .acoes-licitando { gap: 12px; }
 }

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { abasDoUsuario, Icone } from "./abas";
+import { abasDoUsuario, Icone, type Papel } from "./abas";
 
-export function NavPainel({ admin = false }: { admin?: boolean }) {
+export function NavPainel({ papel = "cliente" }: { papel?: Papel }) {
   const rotaAtual = usePathname();
-  const abas = abasDoUsuario(admin);
+  const abas = abasDoUsuario(papel);
 
   return (
     <nav className="sidebar-nav">
