@@ -94,13 +94,16 @@ Deno.serve(async (req) => {
       return json({ atualizado: false, motivo: "já estava completa" });
     }
 
-    const doPncp = await buscarContratacao(registro.numero_controle_pncp);
-    if (!doPncp) {
+    const resultado = await buscarContratacao(registro.numero_controle_pncp);
+    if (!resultado.ok) {
       return json({
         atualizado: false,
-        motivo: "o PNCP não devolveu a ficha desta licitação",
+        motivo: resultado.motivo === "indisponivel"
+          ? "o PNCP não respondeu agora — tente de novo em alguns minutos"
+          : "o PNCP não tem a ficha desta licitação",
       });
     }
+    const doPncp = resultado.ficha;
 
     // Só o que está nulo aqui e veio preenchido de lá.
     const patch: Record<string, unknown> = {};

@@ -3355,3 +3355,9 @@ main.container {
   .calendario-dia { min-height: 40px; font-size: 13px; }
   .acoes-licitando { gap: 12px; }
 }
+
+/* aviso discreto do preenchimento de prazos no PNCP */
+.aviso-completando {
+  font-size: 13px;
+  margin: -6px 0 12px;
+}

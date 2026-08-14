@@ -307,13 +307,22 @@ export async function buscarItensContratacao(
  * funcionam, a raiz não), e /contratacoes/proposta só consulta por período,
  * não por número. A busca aceita o próprio número como termo.
  *
- * Retorna null se o número não puder ser interpretado, o PNCP não responder ou
- * o registro não aparecer — o chamador decide seguir sem completar.
+ * O motivo da falha importa para quem faz backfill: "o PNCP não tem a ficha" é
+ * definitivo, "o PNCP não respondeu" é para tentar de novo logo — a API oscila
+ * bastante e uma indisponibilidade não deveria condenar a licitação a esperar
+ * a próxima janela longa.
  */
+export type ResultadoFicha =
+  | { ok: true; ficha: LicitacaoColetada }
+  | { ok: false; motivo: "numero_invalido" | "nao_encontrada" | "indisponivel" };
+
 export async function buscarContratacao(
   numeroControlePncp: string,
-): Promise<LicitacaoColetada | null> {
-  if (!partesNumeroControle(numeroControlePncp)) return null;
+  retry: { timeoutMs: number; tentativas: number } = RETRY_PNCP,
+): Promise<ResultadoFicha> {
+  if (!partesNumeroControle(numeroControlePncp)) {
+    return { ok: false, motivo: "numero_invalido" };
+  }
 
   const url = new URL(`${urlBasePncp().replace(/\/api\/consulta$/, "")}/api/search/`);
   url.searchParams.set("q", numeroControlePncp);
@@ -322,8 +331,8 @@ export async function buscarContratacao(
   url.searchParams.set("tam_pagina", "10");
 
   try {
-    const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
-    if (!resposta.ok) return null;
+    const resposta = await fetchWithRetry(url, {}, retry);
+    if (!resposta.ok) return { ok: false, motivo: "indisponivel" };
     const corpo = (await resposta.json()) as {
       items?: ItemBuscaTextualPNCP[];
     };
@@ -331,10 +340,10 @@ export async function buscarContratacao(
     const item = (corpo.items ?? []).find(
       (i) => i.numero_controle_pncp === numeroControlePncp,
     );
-    if (!item) return null;
-    return mapearItemBuscaTextual(item);
+    if (!item) return { ok: false, motivo: "nao_encontrada" };
+    return { ok: true, ficha: mapearItemBuscaTextual(item) };
   } catch {
-    return null;
+    return { ok: false, motivo: "indisponivel" };
   }
 }
 

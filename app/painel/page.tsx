@@ -6,6 +6,7 @@ import {
   type LicitacaoCartaoDados,
 } from "./licitacao-cartao";
 import { ConvitePush } from "./convite-push";
+import { CompletarPendentes } from "./completar-pendentes";
 
 interface LinhaPainel {
   id: string;
@@ -148,6 +149,14 @@ export default async function PaginaPainel({
   const participando = new Set(
     (participacoes ?? []).map((p) => p.licitacao_id as string),
   );
+  // Licitação que entrou pela busca textual antes da correção pode estar sem
+  // prazo e sem valor; o componente busca a ficha no PNCP para as da página.
+  const incompletas = lista
+    .filter(
+      (m) => m.data_encerramento_proposta === null ||
+        m.valor_total_estimado === null,
+    )
+    .map((m) => m.licitacao_id);
 
   /** Monta o link de uma página preservando busca/filtro/ordem. */
   function urlPagina(p: number): string {
@@ -277,6 +286,8 @@ export default async function PaginaPainel({
           .
         </p>
       )}
+
+      {incompletas.length > 0 && <CompletarPendentes ids={incompletas} />}
 
       {!verOcultas && total > 0 && lista.length === 0 && (
         <div className="cartao">

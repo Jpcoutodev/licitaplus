@@ -5,6 +5,7 @@ import {
   LicitacaoCartao,
   type LicitacaoCartaoDados,
 } from "../licitacao-cartao";
+import { CompletarPendentes } from "../completar-pendentes";
 
 interface FavoritoComLicitacao {
   id: string;
@@ -37,6 +38,13 @@ export default async function PaginaFavoritos() {
   const participando = new Set(
     (participacoes ?? []).map((p) => p.licitacao_id as string),
   );
+  const incompletas = lista
+    .filter(
+      (f) =>
+        f.licitacoes.data_encerramento_proposta === null ||
+        f.licitacoes.valor_total_estimado === null,
+    )
+    .map((f) => f.licitacoes.id);
 
   return (
     <>
@@ -65,6 +73,8 @@ export default async function PaginaFavoritos() {
           </p>
         </div>
       )}
+
+      {incompletas.length > 0 && <CompletarPendentes ids={incompletas} />}
 
       {lista.map((favorito) => (
         <LicitacaoCartao
