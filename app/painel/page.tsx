@@ -150,12 +150,11 @@ export default async function PaginaPainel({
     (participacoes ?? []).map((p) => p.licitacao_id as string),
   );
   // Licitação que entrou pela busca textual antes da correção pode estar sem
-  // prazo e sem valor; o componente busca a ficha no PNCP para as da página.
+  // prazo; o componente busca a ficha no PNCP para as da página. Só prazo: a
+  // busca do PNCP não publica valor, então disparar por valor ausente gastaria
+  // uma chamada por cartão sem nunca preencher nada.
   const incompletas = lista
-    .filter(
-      (m) => m.data_encerramento_proposta === null ||
-        m.valor_total_estimado === null,
-    )
+    .filter((m) => m.data_encerramento_proposta === null)
     .map((m) => m.licitacao_id);
 
   /** Monta o link de uma página preservando busca/filtro/ordem. */

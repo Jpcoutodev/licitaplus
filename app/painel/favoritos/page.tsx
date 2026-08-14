@@ -38,12 +38,9 @@ export default async function PaginaFavoritos() {
   const participando = new Set(
     (participacoes ?? []).map((p) => p.licitacao_id as string),
   );
+  // Só prazo: a busca do PNCP não publica valor (ver CompletarPendentes).
   const incompletas = lista
-    .filter(
-      (f) =>
-        f.licitacoes.data_encerramento_proposta === null ||
-        f.licitacoes.valor_total_estimado === null,
-    )
+    .filter((f) => f.licitacoes.data_encerramento_proposta === null)
     .map((f) => f.licitacoes.id);
 
   return (

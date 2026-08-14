@@ -21,6 +21,19 @@ export function formatarValor(valor: number | null): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/**
+ * O valor estimado só vale mostrar quando existe de verdade.
+ *
+ * Nas licitações que o usuário vê (as que casaram com o perfil), 63% estão sem
+ * valor e 5% vêm com zero — só 31% têm número útil. Nulo vem de quem entrou
+ * pela busca textual, que não publica valor; zero em geral é orçamento
+ * sigiloso, e "R$ 0,00" parece um preço quando não é. Nos dois casos a linha
+ * sai do cartão em vez de virar ruído.
+ */
+export function temValorUtil(valor: number | null): boolean {
+  return valor !== null && valor > 0;
+}
+
 export function formatarData(data: string | null): string {
   if (!data) return "não informada";
   const d = new Date(data);
@@ -84,8 +97,13 @@ export function LicitacaoCartao({
         {nova && <span className="etiqueta etiqueta-nova">novo</span>}
       </p>
       <p className="detalhes" style={{ marginTop: 8 }}>
-        <strong>Valor estimado:</strong> {formatarValor(l.valor_total_estimado)}{" "}
-        · <strong>Propostas até:</strong>{" "}
+        {temValorUtil(l.valor_total_estimado) && (
+          <>
+            <strong>Valor estimado:</strong>{" "}
+            {formatarValor(l.valor_total_estimado)} ·{" "}
+          </>
+        )}
+        <strong>Propostas até:</strong>{" "}
         {formatarData(l.data_encerramento_proposta)} · <strong>Órgão:</strong>{" "}
         {l.orgao_razao_social ?? "não informado"}
       </p>

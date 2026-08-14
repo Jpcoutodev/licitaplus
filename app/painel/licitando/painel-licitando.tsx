@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { criarClientNavegador } from "@/lib/supabase/client";
 import { AnalisarBotao } from "../analisar-botao";
-import { formatarValor, linkPaginaPncp } from "../licitacao-cartao";
+import {
+  formatarValor,
+  linkPaginaPncp,
+  temValorUtil,
+} from "../licitacao-cartao";
 import {
   DIAS_SEMANA,
   MESES,
@@ -370,8 +374,13 @@ export function PainelLicitando({ itens }: { itens: ItemParticipacao[] }) {
             </div>
 
             <p className="detalhes" style={{ marginTop: 10 }}>
-              <strong>Valor estimado:</strong>{" "}
-              {formatarValor(l.valor_total_estimado)} · <strong>Órgão:</strong>{" "}
+              {temValorUtil(l.valor_total_estimado) && (
+                <>
+                  <strong>Valor estimado:</strong>{" "}
+                  {formatarValor(l.valor_total_estimado)} ·{" "}
+                </>
+              )}
+              <strong>Órgão:</strong>{" "}
               {l.orgao_razao_social ?? "não informado"}
             </p>
 

@@ -610,23 +610,15 @@ function ChatAnalise() {
             licitação.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {licitacaoId && (
-            <ParticiparBotao
-              licitacaoId={licitacaoId}
-              participando={participando.has(licitacaoId)}
-            />
-          )}
-          {mensagens.length > 0 && (
-            <button
-              type="button"
-              className="botao botao-secundario"
-              onClick={limparConversa}
-            >
-              Limpar conversa
-            </button>
-          )}
-        </div>
+        {mensagens.length > 0 && (
+          <button
+            type="button"
+            className="botao botao-secundario"
+            onClick={limparConversa}
+          >
+            Limpar conversa
+          </button>
+        )}
       </div>
 
       <div className="cartao">
@@ -649,6 +641,22 @@ function ChatAnalise() {
               Você ainda não tem favoritas — marque uma licitação com ★ no{" "}
               <Link href="/painel">painel</Link> para analisá-la aqui.
             </p>
+          )}
+
+          {/* Junto do seletor, e não no topo da página: a decisão de disputar
+              vem depois de ler a análise desta licitação. */}
+          {licitacaoId && (
+            <div className="acao-participar">
+              <ParticiparBotao
+                licitacaoId={licitacaoId}
+                participando={participando.has(licitacaoId)}
+              />
+              <span className="ajuda">
+                {participando.has(licitacaoId)
+                  ? "Esta licitação já está na aba Licitando."
+                  : "Vai disputar? Coloque na aba Licitando para acompanhar os prazos."}
+              </span>
+            </div>
           )}
         </div>
 

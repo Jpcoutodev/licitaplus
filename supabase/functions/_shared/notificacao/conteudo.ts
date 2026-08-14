@@ -24,6 +24,15 @@ export function formatarValor(valor: number | null): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/**
+ * Valor estimado só entra quando existe: nulo é licitação que veio da busca
+ * textual (o PNCP não publica valor ali) e zero é, em geral, orçamento
+ * sigiloso — "R$ 0,00" no email parece preço e não é.
+ */
+function temValorUtil(valor: number | null): boolean {
+  return valor !== null && valor > 0;
+}
+
 export function formatarData(data: string | null): string {
   if (!data) return "não informada";
   const d = new Date(data);
@@ -41,9 +50,10 @@ export const INSTRUCAO_RESUMO =
   "Você escreve resumos de licitações públicas para donos de pequenas empresas " +
   "que não conhecem o jargão de licitações. Escreva em português simples e " +
   "direto, em 2 ou 3 frases: o que está sendo comprado, quem está comprando, " +
-  "o valor estimado e até quando dá para enviar proposta. Use somente as " +
-  "informações fornecidas — nunca invente nada. Responda apenas com o resumo, " +
-  "sem título nem comentários.";
+  "o valor estimado (quando informado) e até quando dá para enviar proposta. " +
+  "Use somente as informações fornecidas — nunca invente nada, e não comente a " +
+  "ausência de um dado. Responda apenas com o resumo, sem título nem " +
+  "comentários.";
 
 export function montarPromptResumo(l: LicitacaoParaNotificar): string {
   const linhas = [
@@ -51,7 +61,11 @@ export function montarPromptResumo(l: LicitacaoParaNotificar): string {
     l.informacao_complementar
       ? `Informação complementar: ${l.informacao_complementar.slice(0, 800)}`
       : null,
-    `Valor total estimado: ${formatarValor(l.valor_total_estimado)}`,
+    // Sem valor útil a linha não vai: dizer "não informado" à IA convida o
+    // resumo a comentar a ausência, que não interessa a ninguém.
+    temValorUtil(l.valor_total_estimado)
+      ? `Valor total estimado: ${formatarValor(l.valor_total_estimado)}`
+      : null,
     `Abertura das propostas: ${formatarData(l.data_abertura_proposta)}`,
     `Encerramento das propostas: ${formatarData(l.data_encerramento_proposta)}`,
     `Órgão: ${l.orgao_razao_social ?? "não informado"}`,
@@ -98,7 +112,11 @@ export function montarEmailMatches(
         <h3 style="margin:0 0 8px 0;">${titulo}</h3>
         <p style="margin:0 0 8px 0;">${escaparHtml(resumo)}</p>
         <p style="margin:0;color:#555;font-size:14px;">
-          <strong>Valor estimado:</strong> ${escaparHtml(formatarValor(l.valor_total_estimado))}<br>
+          ${
+      temValorUtil(l.valor_total_estimado)
+        ? `<strong>Valor estimado:</strong> ${escaparHtml(formatarValor(l.valor_total_estimado))}<br>`
+        : ""
+    }
           <strong>Propostas até:</strong> ${escaparHtml(formatarData(l.data_encerramento_proposta))}<br>
           <strong>Órgão:</strong> ${escaparHtml(l.orgao_razao_social ?? "não informado")} — ${escaparHtml(l.municipio_nome ?? "?")}/${escaparHtml(l.uf ?? "?")}<br>
           <strong>Controle PNCP:</strong> ${escaparHtml(l.numero_controle_pncp)}

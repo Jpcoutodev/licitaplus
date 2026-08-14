@@ -3361,3 +3361,17 @@ main.container {
   font-size: 13px;
   margin: -6px 0 12px;
 }
+
+/* "Participar" junto do seletor de licitação, na Análise IA */
+.acao-participar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.acao-participar .ajuda {
+  font-size: 13px;
+  color: var(--texto-suave);
+  margin: 0;
+}
