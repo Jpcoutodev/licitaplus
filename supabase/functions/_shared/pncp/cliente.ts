@@ -96,6 +96,9 @@ interface ItemBuscaTextualPNCP {
   situacao_nome: string | null;
   valor_global: number | null;
   data_publicacao_pncp: string | null;
+  /** Documento do tipo edital: janela de recebimento de propostas. */
+  data_inicio_vigencia: string | null;
+  data_fim_vigencia: string | null;
   item_url: string | null;
   [campo: string]: unknown;
 }
@@ -110,8 +113,15 @@ interface ItemBuscaTextualPNCP {
  *  - o filtro de modalidade não aceita múltiplos valores (repetir o
  *    parâmetro faz valer só o último; vírgula retorna zero) — por isso NÃO
  *    filtramos modalidade aqui; o matching filtra por perfil no banco;
- *  - os itens não trazem as datas de proposta nem sempre trazem valor —
- *    a varredura oficial enriquece o registro depois (upsert com merge).
+ *  - nem sempre trazem valor — a varredura oficial enriquece depois (upsert
+ *    com merge);
+ *  - as datas de proposta VÊM, com outro nome: para documento do tipo edital,
+ *    data_inicio_vigencia/data_fim_vigencia são a abertura/encerramento do
+ *    recebimento de propostas. Conferido contra registros que a varredura
+ *    oficial já tinha gravado: batem ao minuto (inclusive horários quebrados
+ *    como 08:50). Antes eram descartadas como nulas, e a licitação achada por
+ *    palavra-chave ficava sem prazo até a varredura oficial passar por ela —
+ *    o que pode nunca acontecer.
  */
 export async function buscarPorTermoTextual(
   termo: string,
@@ -150,8 +160,10 @@ function mapearItemBuscaTextual(item: ItemBuscaTextualPNCP): LicitacaoColetada {
     objeto_compra: item.description ?? "",
     informacao_complementar: null,
     valor_total_estimado: item.valor_global ?? null,
-    data_abertura_proposta: null,
-    data_encerramento_proposta: null,
+    // Hora de Brasília sem fuso, como o PNCP publica — mesma forma que a
+    // varredura oficial grava (ver comentário acima).
+    data_abertura_proposta: item.data_inicio_vigencia ?? null,
+    data_encerramento_proposta: item.data_fim_vigencia ?? null,
     orgao_cnpj: item.orgao_cnpj ?? null,
     orgao_razao_social: item.orgao_nome ?? null,
     unidade_nome: item.unidade_nome ?? null,
@@ -276,6 +288,51 @@ export async function buscarItensContratacao(
     const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
     if (!resposta.ok) return null;
     return (await resposta.json()) as ItemContratacaoPNCP[];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ficha de UMA contratação, pelo numero_controle_pncp.
+ *
+ * Existe para completar o registro parcial da busca textual: sem as datas de
+ * proposta a licitação não tem prazo para acompanhar na aba Licitando, e o
+ * registro só era completado se a varredura oficial passasse por ele depois —
+ * o que pode nunca acontecer para uma licitação achada por palavra-chave fora
+ * do horizonte da varredura.
+ *
+ * Por que pela busca e não pela rota de detalhe: /v1/orgaos/{cnpj}/compras/
+ * {ano}/{seq} responde 301 sem Location (as sub-rotas /itens e /arquivos
+ * funcionam, a raiz não), e /contratacoes/proposta só consulta por período,
+ * não por número. A busca aceita o próprio número como termo.
+ *
+ * Retorna null se o número não puder ser interpretado, o PNCP não responder ou
+ * o registro não aparecer — o chamador decide seguir sem completar.
+ */
+export async function buscarContratacao(
+  numeroControlePncp: string,
+): Promise<LicitacaoColetada | null> {
+  if (!partesNumeroControle(numeroControlePncp)) return null;
+
+  const url = new URL(`${urlBasePncp().replace(/\/api\/consulta$/, "")}/api/search/`);
+  url.searchParams.set("q", numeroControlePncp);
+  url.searchParams.set("tipos_documento", "edital");
+  url.searchParams.set("pagina", "1");
+  url.searchParams.set("tam_pagina", "10");
+
+  try {
+    const resposta = await fetchWithRetry(url, {}, RETRY_PNCP);
+    if (!resposta.ok) return null;
+    const corpo = (await resposta.json()) as {
+      items?: ItemBuscaTextualPNCP[];
+    };
+    // O termo é o número, mas a busca é textual: casa o exato, não o primeiro.
+    const item = (corpo.items ?? []).find(
+      (i) => i.numero_controle_pncp === numeroControlePncp,
+    );
+    if (!item) return null;
+    return mapearItemBuscaTextual(item);
   } catch {
     return null;
   }

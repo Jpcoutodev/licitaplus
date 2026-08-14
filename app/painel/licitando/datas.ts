@@ -1,29 +1,47 @@
 /**
- * Datas da aba Licitando, sempre no fuso de Brasília.
+ * Datas dos prazos de proposta, no horário de Brasília.
  *
- * Os prazos do PNCP são publicados em horário de Brasília e guardados como
- * timestamptz. Se o agrupamento por dia usasse o fuso do navegador, uma
- * licitação que encerra 25/08 às 08:00 cairia no dia 24 para quem estiver a
- * oeste — o calendário marcaria o quadradinho errado. Por isso tanto o rótulo
- * quanto a chave do dia saem daqui, com o fuso fixo.
+ * Como o dado está gravado: o PNCP publica a hora de Brasília SEM fuso
+ * ("2026-08-14T08:50") e a coleta grava a string como está numa coluna
+ * timestamptz — o Postgres então a interpreta como UTC. Conferido contra o
+ * PNCP: uma licitação publicada para 08:50 de Brasília está no banco como
+ * 08:50Z. Ou seja, o instante armazenado carrega o relógio de parede de
+ * Brasília, não o instante real.
+ *
+ * Consequência para a leitura: os prazos são formatados em UTC e rotulados
+ * como Brasília, que é exatamente a hora impressa no edital. Converter para
+ * America/Sao_Paulo mostraria três horas menos (08:50 viraria 05:50) e, num
+ * prazo de madrugada, jogaria a licitação para o dia anterior no calendário.
+ *
+ * Já `hojeEmBrasilia` é outra coisa: "agora" é um instante de verdade, então
+ * ali o fuso de Brasília é o certo.
  */
 
-export const FUSO_BRASILIA = "America/Sao_Paulo";
+/** Prazos do PNCP: relógio de parede de Brasília guardado como UTC. */
+const FUSO_PRAZO = "UTC";
+const FUSO_REAL = "America/Sao_Paulo";
 
-const FORMATO_DIA = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: FUSO_BRASILIA,
+const FORMATO_DIA_PRAZO = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: FUSO_PRAZO,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
 });
 
-const FORMATO_DATA_HORA = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: FUSO_BRASILIA,
+const FORMATO_DATA_HORA_PRAZO = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: FUSO_PRAZO,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
+});
+
+const FORMATO_DIA_REAL = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: FUSO_REAL,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
 });
 
 function partes(
@@ -41,11 +59,11 @@ function paraData(iso: string | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Chave "AAAA-MM-DD" do dia em Brasília — é o que casa com o calendário. */
-export function diaEmBrasilia(iso: string | null): string | null {
+/** Chave "AAAA-MM-DD" do dia do prazo — é o que casa com o calendário. */
+export function diaDoPrazo(iso: string | null): string | null {
   const d = paraData(iso);
   if (!d) return null;
-  const p = partes(FORMATO_DIA, d);
+  const p = partes(FORMATO_DIA_PRAZO, d);
   return `${p.year}-${p.month}-${p.day}`;
 }
 
@@ -56,17 +74,18 @@ export function chaveDoDia(ano: number, mes: number, dia: number): string {
   return `${ano}-${mm}-${dd}`;
 }
 
-/** "25/08/2026 08:00" — o formato que o PNCP publica. */
-export function dataHoraEmBrasilia(iso: string | null): string {
+/** "14/08/2026 08:50" — a hora que consta no edital. */
+export function dataHoraDoPrazo(iso: string | null): string {
   const d = paraData(iso);
   if (!d) return "não informada";
-  const p = partes(FORMATO_DATA_HORA, d);
+  const p = partes(FORMATO_DATA_HORA_PRAZO, d);
   return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
 }
 
-/** Dia de hoje em Brasília, na mesma chave. */
+/** Dia de hoje em Brasília (instante real), na mesma chave do calendário. */
 export function hojeEmBrasilia(): string {
-  return diaEmBrasilia(new Date().toISOString()) as string;
+  const p = partes(FORMATO_DIA_REAL, new Date());
+  return `${p.year}-${p.month}-${p.day}`;
 }
 
 /** "25 de agosto de 2026" — para o título da lista filtrada. */
@@ -95,7 +114,7 @@ export const DIAS_SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"];
 /**
  * Grade do mês: começa no domingo da semana do dia 1 e vai até completar a
  * última semana. Só aritmética de calendário (dia/mês/ano), sem fuso: a
- * comparação com as licitações acontece pela chave, que já vem em Brasília.
+ * comparação com as licitações acontece pela chave.
  */
 export function gradeDoMes(
   ano: number,

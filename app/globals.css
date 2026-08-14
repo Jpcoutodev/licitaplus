@@ -3174,6 +3174,11 @@ main.container {
 .prazo .ponto { margin-top: 6px; }
 .prazo-abertura strong { color: var(--abertura); }
 .prazo-encerramento strong { color: #b45309; }
+.prazos .ajuda {
+  font-size: 13px;
+  color: var(--texto-suave);
+  margin-top: 2px;
+}
 
 .acoes-licitando {
   display: flex;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { criarClientNavegador } from "@/lib/supabase/client";
@@ -9,8 +9,8 @@ import { formatarValor, linkPaginaPncp } from "../licitacao-cartao";
 import {
   DIAS_SEMANA,
   MESES,
-  dataHoraEmBrasilia,
-  diaEmBrasilia,
+  dataHoraDoPrazo,
+  diaDoPrazo,
   diaPorExtenso,
   gradeDoMes,
   hojeEmBrasilia,
@@ -58,14 +58,68 @@ export function PainelLicitando({ itens }: { itens: ItemParticipacao[] }) {
   const [diaSelecionado, setDiaSelecionado] = useState<string | null>(null);
   const [salvando, setSalvando] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [completando, setCompletando] = useState(false);
+  /** Licitações já tentadas nesta sessão — não insiste no que o PNCP não tem. */
+  const tentadas = useRef<Set<string>>(new Set());
+
+  /**
+   * Licitação achada pela busca textual vem sem as datas de proposta (e às
+   * vezes sem valor). Numa lista de oportunidades é detalhe; aqui é o dado
+   * principal, então ao abrir a aba buscamos a ficha oficial no PNCP.
+   *
+   * Em lotes de oito e uma vez por licitação por sessão: se o PNCP também não
+   * informa os prazos, não adianta bater de novo a cada visita.
+   */
+  useEffect(() => {
+    const faltando = itens
+      .filter(
+        (i) =>
+          !i.licitacao.data_abertura_proposta ||
+          !i.licitacao.data_encerramento_proposta,
+      )
+      .filter((i) => !tentadas.current.has(i.licitacao.id))
+      .slice(0, 8);
+    if (faltando.length === 0) return;
+
+    let ativo = true;
+    async function completar() {
+      setCompletando(true);
+      const supabase = criarClientNavegador();
+      for (const i of faltando) tentadas.current.add(i.licitacao.id);
+
+      const resultados = await Promise.all(
+        faltando.map(async (i) => {
+          try {
+            const { data } = await supabase.functions.invoke(
+              "completar-licitacao",
+              { body: { licitacao_id: i.licitacao.id } },
+            );
+            return Boolean((data as { atualizado?: boolean })?.atualizado);
+          } catch {
+            return false;
+          }
+        }),
+      );
+
+      if (!ativo) return;
+      setCompletando(false);
+      // Só recarrega se algo mudou de fato (evita laço de refresh).
+      if (resultados.some(Boolean)) roteador.refresh();
+    }
+    void completar();
+
+    return () => {
+      ativo = false;
+    };
+  }, [itens, roteador]);
 
   /** Índice dia -> participações que abrem / encerram naquele dia. */
   const porDia = useMemo(() => {
     const aberturas = new Map<string, ItemParticipacao[]>();
     const encerramentos = new Map<string, ItemParticipacao[]>();
     for (const item of itens) {
-      const abre = diaEmBrasilia(item.licitacao.data_abertura_proposta);
-      const encerra = diaEmBrasilia(item.licitacao.data_encerramento_proposta);
+      const abre = diaDoPrazo(item.licitacao.data_abertura_proposta);
+      const encerra = diaDoPrazo(item.licitacao.data_encerramento_proposta);
       if (abre) aberturas.set(abre, [...(aberturas.get(abre) ?? []), item]);
       if (encerra) {
         encerramentos.set(encerra, [...(encerramentos.get(encerra) ?? []), item]);
@@ -287,18 +341,32 @@ export function PainelLicitando({ itens }: { itens: ItemParticipacao[] }) {
                 <i className="ponto ponto-abertura" />
                 <span>
                   <strong>Início do recebimento de propostas:</strong>{" "}
-                  {dataHoraEmBrasilia(l.data_abertura_proposta)}
-                  {l.data_abertura_proposta && " (horário de Brasília)"}
+                  {l.data_abertura_proposta
+                    ? `${dataHoraDoPrazo(l.data_abertura_proposta)} (horário de Brasília)`
+                    : completando
+                    ? "buscando no PNCP..."
+                    : "não informada"}
                 </span>
               </p>
               <p className="prazo prazo-encerramento">
                 <i className="ponto ponto-encerramento" />
                 <span>
                   <strong>Fim do recebimento de propostas:</strong>{" "}
-                  {dataHoraEmBrasilia(l.data_encerramento_proposta)}
-                  {l.data_encerramento_proposta && " (horário de Brasília)"}
+                  {l.data_encerramento_proposta
+                    ? `${dataHoraDoPrazo(l.data_encerramento_proposta)} (horário de Brasília)`
+                    : completando
+                    ? "buscando no PNCP..."
+                    : "não informada"}
                 </span>
               </p>
+              {!completando &&
+                !l.data_abertura_proposta &&
+                !l.data_encerramento_proposta && (
+                <p className="ajuda">
+                  O PNCP não publicou os prazos desta licitação — confira no
+                  edital, pelo link abaixo.
+                </p>
+              )}
             </div>
 
             <p className="detalhes" style={{ marginTop: 10 }}>
