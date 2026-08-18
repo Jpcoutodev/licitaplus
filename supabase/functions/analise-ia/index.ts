@@ -499,10 +499,18 @@ Deno.serve(async (req) => {
     const service = clientServico();
     const assinatura = await lerAssinatura(service, user.id, user.email ?? null);
 
+    // Toda ação que chama a IA entra na telemetria com o próprio nome: é por
+    // ela que a aba Métricas acompanha o custo de IA.
+    const ACOES_NOMEADAS = new Set([
+      "resumo_executivo",
+      "planilha_materiais",
+      "modelo_proposta",
+      "modelo_declaracoes",
+    ]);
     const acaoLog = corpo?.acao === "analisar_arquivo"
       ? "anexar_pncp"
-      : corpo?.acao === "resumo_executivo"
-        ? "resumo_executivo"
+      : typeof corpo?.acao === "string" && ACOES_NOMEADAS.has(corpo.acao)
+        ? corpo.acao
         : typeof corpo?.pdf_base64 === "string"
           ? "anexar_upload"
           : "conversa";
@@ -530,11 +538,6 @@ Deno.serve(async (req) => {
       return await modoListarArquivos(supabase, corpo);
     }
 
-    // Planilha de materiais: os números vêm da API do PNCP, não da IA. Só o
-    // cabeçalho (entrega, pagamento, amostra) sai do edital, quando anexado.
-    if (corpo?.acao === "planilha_materiais") {
-      return await modoPlanilhaMateriais(supabase, corpo);
-    }
 
     const ehAnaliseNova = corpo?.acao === "analisar_arquivo" ||
       typeof corpo?.pdf_base64 === "string";
@@ -565,6 +568,15 @@ Deno.serve(async (req) => {
       resposta = await modoAnalisarArquivo(supabase, corpo);
     } else if (corpo?.acao === "resumo_executivo") {
       resposta = await modoResumoExecutivo(supabase, corpo);
+    } else if (corpo?.acao === "planilha_materiais") {
+      // Os números vêm da API do PNCP, não da IA; só o cabeçalho (entrega,
+      // pagamento, amostra) sai do edital, quando anexado.
+      resposta = await modoPlanilhaMateriais(supabase, corpo);
+    } else if (
+      corpo?.acao === "modelo_proposta" || corpo?.acao === "modelo_declaracoes"
+    ) {
+      // Documentos para preencher e assinar, conforme os anexos do edital.
+      resposta = await modoDocumentoModelo(supabase, corpo, corpo.acao);
     } else if (typeof corpo?.pdf_base64 === "string") {
       resposta = await modoPdfAnexado(supabase, corpo);
     } else {
@@ -813,6 +825,200 @@ async function modoPlanilhaMateriais(
       valor_total: i.orcamentoSigiloso ? null : i.valorTotal,
     })),
   }, 200);
+}
+
+const MARCADOR_TABELA = "{{TABELA_ITENS}}";
+
+const INSTRUCOES_MODELO_PROPOSTA =
+  `Você é um consultor sênior em licitações públicas (Lei 14.133/2021). Monte a
+PROPOSTA COMERCIAL da licitante seguindo o modelo de proposta (anexo) do edital
+anexado, em markdown, pronta para o fornecedor preencher, imprimir e assinar.
+
+REGRA ABSOLUTA — NÃO INVENTE NADA:
+- A estrutura e as exigências saem do próprio edital. Se o edital tiver um anexo
+  "modelo de proposta", siga a ordem e os campos DELE.
+- Nunca preencha dados da licitante nem preços: deixe "__________" para o
+  fornecedor completar.
+- Se o edital não tratar de um ponto, escreva "não informado no edital" na
+  seção de regras, e não crie exigência que não existe.
+
+FORMATO (markdown, nesta ordem):
+
+# Proposta Comercial
+Linha com modalidade, número do certame e órgão.
+
+## Identificação da Licitante
+Campos em branco para preencher: razão social, CNPJ, inscrição estadual/
+municipal, endereço, telefone, email, dados bancários, representante legal com
+CPF e cargo. Um por linha, no formato "**Campo:** __________".
+
+## Objeto da Proposta
+Duas ou três linhas com o que está sendo ofertado, conforme o objeto do edital.
+
+## Planilha de Preços
+Escreva EXATAMENTE a linha ${MARCADOR_TABELA} nesta seção, sozinha, sem tabela
+nenhuma em volta. A tabela de itens é inserida pelo sistema a partir dos dados
+oficiais do PNCP — você NÃO deve escrever itens, quantidades nem valores.
+
+## Declarações que acompanham esta proposta
+Bullets curtos com o que o edital manda a licitante declarar DENTRO da proposta
+(ex.: que os preços incluem tributos, fretes e encargos; que a proposta é válida
+por N dias; que aceita as condições do edital).
+
+## Regras do Edital para a Proposta
+Bullets com o que o edital exige na forma de apresentar a proposta: prazo de
+validade, prazo de entrega ou execução, o que deve estar incluído no preço,
+número de casas decimais, se admite cotação parcial ou por lote, se exige
+planilha de custos ou composição de BDI, se exige papel timbrado ou assinatura
+digital, e o que causa desclassificação. Cite o item do edital quando aparecer.
+
+## Local, Data e Assinatura
+Linhas em branco para cidade, data, assinatura, nome e cargo do representante.
+
+Não use itálico nem sublinhado como formatação: os campos em branco já usam
+underscores, e misturar os dois embaralha o documento.`;
+
+const INSTRUCOES_MODELO_DECLARACOES =
+  `Você é um consultor sênior em licitações públicas (Lei 14.133/2021). Monte o
+documento de DECLARAÇÕES que o edital anexado exige da licitante, em markdown,
+pronto para o fornecedor preencher, imprimir e assinar.
+
+REGRA ABSOLUTA — NÃO INVENTE NADA:
+- Inclua APENAS as declarações que o edital exige. Se o edital traz um anexo com
+  modelo de declaração, siga o texto e a ordem dele.
+- Nunca preencha dados da licitante: deixe "__________".
+- Não invente exigência, artigo de lei nem número de anexo. Cite dispositivo
+  legal só quando o edital citar, e do jeito que ele citar.
+
+FORMATO (markdown):
+
+# Declarações
+Linha com modalidade, número do certame e órgão.
+
+## Identificação da Licitante
+"**Razão social:** __________", "**CNPJ:** __________", "**Representante
+legal:** __________", "**CPF:** __________" — um por linha.
+
+Depois, uma seção "## " por declaração exigida, com o título da declaração e, no
+corpo, o texto pronto para assinar, na primeira pessoa da empresa ("Declaro,
+sob as penas da lei, que..."), com "__________" onde o fornecedor preenche.
+Ao final de cada uma, se o edital exigir aquela declaração em documento
+separado, acrescente um bullet começando com "**Observação:**" avisando que ela
+vai em folha própria.
+
+Não use itálico nem sublinhado como formatação: os campos em branco já usam
+underscores, e misturar os dois embaralha o documento.
+
+Encerre com:
+
+## Local, Data e Assinatura
+Linhas em branco para cidade, data, assinatura, nome e cargo.
+
+Se o edital não listar nenhuma declaração obrigatória, responda apenas com
+"# Declarações" e uma linha dizendo que o edital não relaciona declarações
+próprias, orientando conferir a plataforma do certame.`;
+
+/** Tabela markdown dos itens, com as colunas de preço em branco para preencher. */
+function tabelaItensMarkdown(itens: ItemContratacaoPNCP[]): string {
+  const cabecalho =
+    "| Item | Descrição | Qtd | Unidade | Valor unit. de referência | Valor unit. ofertado | Valor total ofertado |";
+  const separador = "| --- | --- | --- | --- | --- | --- | --- |";
+  const linhas = itens.map((i) => {
+    const ref = i.orcamentoSigiloso || i.valorUnitarioEstimado === null
+      ? "sigiloso"
+      : i.valorUnitarioEstimado.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
+    const descricao = (i.descricao ?? "").replace(/\|/g, "/").slice(0, 400);
+    return `| ${i.numeroItem} | ${descricao} | ${i.quantidade ?? ""} | ${
+      i.unidadeMedida ?? ""
+    } | ${ref} | __________ | __________ |`;
+  });
+  return [cabecalho, separador, ...linhas].join("\n");
+}
+
+/**
+ * Modelos de proposta e de declarações, em markdown para o navegador converter
+ * em .docx (mesmo caminho do resumo executivo).
+ *
+ * Os dois exigem o edital anexado, e isso não é limitação técnica: proposta
+ * fora do modelo do anexo é motivo de desclassificação, então gerar um "modelo
+ * genérico" sem ler o edital seria entregar um risco embalado de documento.
+ *
+ * Na proposta, a IA não escreve a planilha de itens: ela deixa um marcador e o
+ * servidor injeta a tabela vinda da API do PNCP. Quantidade errada em proposta
+ * é proposta perdida.
+ */
+async function modoDocumentoModelo(
+  supabase: ClienteSupabase,
+  corpo: Record<string, unknown>,
+  acao: "modelo_proposta" | "modelo_declaracoes",
+): Promise<Response> {
+  const conversaId = await validarConversa(supabase, corpo?.conversa_id);
+  if (!conversaId) {
+    return respostaJson({ erro: "conversa não encontrada" }, 404);
+  }
+
+  const { data: conversa } = await supabase
+    .from("conversas_ia")
+    .select("documento_nome, documento_texto")
+    .eq("id", conversaId)
+    .maybeSingle();
+
+  const texto = conversa?.documento_texto as string | null;
+  if (!texto || texto.length === 0) {
+    return respostaJson({
+      erro:
+        "anexe o edital primeiro: o documento é montado conforme o anexo do próprio edital, e apresentar proposta ou declaração fora do modelo exigido é motivo de desclassificação",
+    }, 400);
+  }
+
+  const licitacao = await carregarLicitacao(supabase, corpo?.licitacao_id);
+  const ehProposta = acao === "modelo_proposta";
+
+  const blocos = [
+    ehProposta ? INSTRUCOES_MODELO_PROPOSTA : INSTRUCOES_MODELO_DECLARACOES,
+  ];
+  if (licitacao) {
+    blocos.push(
+      `## Dados oficiais da licitação (PNCP)\n${formatarLicitacao(licitacao)}`,
+    );
+  }
+  blocos.push(
+    `## Edital anexado: "${conversa?.documento_nome ?? "edital"}"\n${
+      texto.slice(0, MAX_DOC_RESUMO)
+    }`,
+  );
+
+  let markdown = await conversarComIA(
+    [
+      { role: "system", content: blocos.join("\n\n") },
+      {
+        role: "user",
+        content: ehProposta
+          ? "Monte a proposta comercial conforme o modelo do edital."
+          : "Monte as declarações exigidas por este edital.",
+      },
+    ],
+    4096,
+  );
+
+  if (ehProposta) {
+    const itens = licitacao
+      ? await buscarItensContratacao(licitacao.numero_controle_pncp)
+      : null;
+    const tabela = itens && itens.length > 0
+      ? tabelaItensMarkdown(itens)
+      : "**Atenção:** os itens não estão publicados na API do PNCP — transcreva a planilha do próprio edital.";
+    markdown = markdown.includes(MARCADOR_TABELA)
+      ? markdown.replaceAll(MARCADOR_TABELA, tabela)
+      // A IA ignorou o marcador: acrescenta a tabela oficial no fim, para a
+      // proposta não sair sem planilha de preços.
+      : `${markdown}\n\n## Planilha de Preços\n${tabela}`;
+  }
+
+  return respostaJson({ markdown }, 200);
 }
 
 async function modoAnalisarArquivo(

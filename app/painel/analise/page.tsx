@@ -105,6 +105,9 @@ function ChatAnalise() {
   const [favoritas, setFavoritas] = useState<OpcaoFavorita[]>([]);
   const [participando, setParticipando] = useState<Set<string>>(new Set());
   const [gerandoPlanilha, setGerandoPlanilha] = useState(false);
+  const [gerandoModelo, setGerandoModelo] = useState<
+    "modelo_proposta" | "modelo_declaracoes" | null
+  >(null);
   const [avisoPlanilha, setAvisoPlanilha] = useState<string | null>(null);
   /** Identificação de quem cota, para o topo da planilha. */
   const [nomeEmpresa, setNomeEmpresa] = useState<string | null>(null);
@@ -668,6 +671,67 @@ function ChatAnalise() {
     }
   }
 
+  /**
+   * Modelos para preencher e assinar (proposta e declarações), em Word.
+   *
+   * Exigem o edital anexado: os dois seguem o anexo do próprio edital, e
+   * apresentar proposta fora do modelo exigido desclassifica.
+   */
+  async function gerarModelo(acao: "modelo_proposta" | "modelo_declaracoes") {
+    if (!licitacaoId || gerandoModelo) return;
+    const rotulo = acao === "modelo_proposta" ? "proposta" : "declarações";
+    setGerandoModelo(acao);
+    setAvisoPlanilha(null);
+    setErro(null);
+    try {
+      const supabase = criarClientNavegador();
+      const { data, error } = await supabase.functions.invoke("analise-ia", {
+        body: {
+          acao,
+          conversa_id: conversaId,
+          licitacao_id: licitacaoId,
+        },
+      });
+      if (error) {
+        throw new Error(
+          await mensagemDaFuncao(error, `não foi possível montar a ${rotulo}`),
+        );
+      }
+      const markdown = (data as { markdown?: string })?.markdown;
+      if (!markdown) throw new Error("resposta vazia da IA");
+
+      const { gerarDocxDoMarkdown } = await import("@/lib/resumo-docx");
+      const bytes = gerarDocxDoMarkdown(markdown);
+      const blob = new Blob([bytes as BlobPart], {
+        type:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const nome = acao === "modelo_proposta" ? "proposta" : "declaracoes";
+      a.download = `${nome}-${new Date().toISOString().slice(0, 10)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setAvisoPlanilha(
+        acao === "modelo_proposta"
+          ? "Proposta baixada em Word. Os campos com __________ são para você preencher, e a planilha de itens veio da API do PNCP — confira contra o anexo do edital antes de enviar."
+          : "Declarações baixadas em Word. Confira contra os anexos do edital: algumas precisam ir em folha própria.",
+      );
+    } catch (excecao) {
+      setErro(
+        excecao instanceof Error
+          ? `Não foi possível montar a ${rotulo}: ${excecao.message}`
+          : `Não foi possível montar a ${rotulo}.`,
+      );
+    } finally {
+      setGerandoModelo(null);
+    }
+  }
+
   /** Baixa o resumo executivo (markdown) como um arquivo Word (.docx). */
   async function baixarResumoDocx(markdown: string) {
     try {
@@ -922,13 +986,34 @@ function ChatAnalise() {
                   >
                     {gerandoPlanilha ? "Montando planilha..." : "📊 Planilha materiais"}
                   </button>
+                  <button
+                    type="button"
+                    className="botao botao-secundario"
+                    disabled={pensando || gerandoModelo !== null}
+                    onClick={() => gerarModelo("modelo_proposta")}
+                  >
+                    {gerandoModelo === "modelo_proposta"
+                      ? "Montando proposta..."
+                      : "📝 Modelo de proposta"}
+                  </button>
+                  <button
+                    type="button"
+                    className="botao botao-secundario"
+                    disabled={pensando || gerandoModelo !== null}
+                    onClick={() => gerarModelo("modelo_declaracoes")}
+                  >
+                    {gerandoModelo === "modelo_declaracoes"
+                      ? "Montando declarações..."
+                      : "✍️ Modelo de declarações"}
+                  </button>
                 </div>
                 <p className="ajuda">
                   O resumo estrutura o edital anexado (objeto, habilitação,
                   riscos, questionamentos) e não inventa dados. A planilha sai
                   em Excel com um item por linha e só funciona em licitação de
                   materiais — quantidades e valores de referência vêm da API do
-                  PNCP.
+                  PNCP. Proposta e declarações saem em Word, com os campos em
+                  branco para preencher, seguindo os anexos do edital.
                 </p>
                 {avisoPlanilha && <p className="ajuda">{avisoPlanilha}</p>}
               </>
