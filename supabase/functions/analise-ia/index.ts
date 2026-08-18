@@ -735,6 +735,17 @@ async function modoPlanilhaMateriais(
     }, 200);
   }
 
+  // A tela pergunta "dá para gerar?" ao selecionar a licitação, para o botão já
+  // nascer habilitado ou explicado. Mesma regra, sem custo de IA: a resposta
+  // sai aqui, antes de qualquer leitura do edital.
+  if (corpo?.apenas_checar === true) {
+    return respostaJson({
+      eh_material: true,
+      itens_material: materiais.length,
+      itens_servico_ignorados: servicos,
+    }, 200);
+  }
+
   // Cabeçalho: o que o PNCP sabe entra direto.
   const cabecalho: Record<string, string | null> = {
     data_certame: null,

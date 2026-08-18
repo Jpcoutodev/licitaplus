@@ -68,6 +68,10 @@ const MAX_MENSAGENS_PARA_IA = 16;
 /** Mensagem do usuário que precede um resumo executivo (marcador de fluxo). */
 const MARCADOR_RESUMO = "📋 Gerar resumo executivo do edital anexado";
 
+/** Por que resumo, proposta e declarações precisam do edital anexado. */
+const MOTIVO_SEM_EDITAL =
+  "Anexe o edital: este documento é montado a partir dele.";
+
 /** A resposta é um resumo executivo? (marcador anterior é o sinal confiável;
  *  o texto é reforço para resumos antigos ou gerados de outra forma.) */
 function ehResumoExecutivo(
@@ -105,6 +109,14 @@ function ChatAnalise() {
   const [favoritas, setFavoritas] = useState<OpcaoFavorita[]>([]);
   const [participando, setParticipando] = useState<Set<string>>(new Set());
   const [gerandoPlanilha, setGerandoPlanilha] = useState(false);
+  /**
+   * Se a planilha de materiais é possível nesta licitação. Descoberto ao
+   * selecioná-la, para o botão não ficar prometendo o que não vai entregar.
+   * null = ainda checando.
+   */
+  const [statusMateriais, setStatusMateriais] = useState<
+    { ok: boolean; motivo: string | null } | null
+  >(null);
   const [gerandoModelo, setGerandoModelo] = useState<
     "modelo_proposta" | "modelo_declaracoes" | null
   >(null);
@@ -225,6 +237,7 @@ function ChatAnalise() {
   // Lista os arquivos publicados no PNCP para a licitação selecionada.
   useEffect(() => {
     setArquivos([]);
+    setStatusMateriais(null);
     if (!licitacaoId) return;
 
     let ativo = true;
@@ -244,7 +257,35 @@ function ChatAnalise() {
         if (ativo) setCarregandoArquivos(false);
       }
     }
+    // Ao lado disso, pergunta se a planilha de materiais é possível. Vai numa
+    // chamada própria (apenas_checar) que não aciona a IA: só a classificação
+    // material/serviço dos itens do PNCP.
+    async function checarMateriais() {
+      setStatusMateriais(null);
+      try {
+        const supabase = criarClientNavegador();
+        const { data } = await supabase.functions.invoke("analise-ia", {
+          body: {
+            acao: "planilha_materiais",
+            licitacao_id: licitacaoId,
+            apenas_checar: true,
+          },
+        });
+        const r = data as { eh_material?: boolean; motivo?: string };
+        if (ativo) {
+          setStatusMateriais({
+            ok: Boolean(r?.eh_material),
+            motivo: r?.motivo ?? null,
+          });
+        }
+      } catch {
+        // Falha na checagem não bloqueia: o botão tenta e o servidor decide.
+        if (ativo) setStatusMateriais({ ok: true, motivo: null });
+      }
+    }
+
     void carregarArquivos();
+    void checarMateriais();
     return () => {
       ativo = false;
     };
@@ -802,6 +843,12 @@ function ChatAnalise() {
     }
   }
 
+  // Estado dos botões de documento: o que depende do edital anexado e o que
+  // depende da licitação ser de materiais.
+  const semEdital = documento === null;
+  const checandoMateriais = Boolean(licitacaoId) && statusMateriais === null;
+  const planilhaBloqueada = statusMateriais?.ok === false;
+
   return (
     <>
       <div className="cabecalho-pagina">
@@ -973,24 +1020,34 @@ function ChatAnalise() {
                   <button
                     type="button"
                     className="botao"
-                    disabled={pensando}
+                    disabled={pensando || semEdital}
                     onClick={gerarResumoExecutivo}
+                    title={semEdital ? MOTIVO_SEM_EDITAL : undefined}
                   >
                     📋 Resumo executivo
                   </button>
                   <button
                     type="button"
                     className="botao botao-secundario"
-                    disabled={pensando || gerandoPlanilha}
+                    disabled={pensando || gerandoPlanilha || checandoMateriais ||
+                      planilhaBloqueada}
                     onClick={gerarPlanilhaMateriais}
+                    title={planilhaBloqueada
+                      ? (statusMateriais?.motivo ?? undefined)
+                      : undefined}
                   >
-                    {gerandoPlanilha ? "Montando planilha..." : "📊 Planilha materiais"}
+                    {gerandoPlanilha
+                      ? "Montando planilha..."
+                      : checandoMateriais
+                      ? "Verificando itens..."
+                      : "📊 Planilha materiais"}
                   </button>
                   <button
                     type="button"
                     className="botao botao-secundario"
-                    disabled={pensando || gerandoModelo !== null}
+                    disabled={pensando || gerandoModelo !== null || semEdital}
                     onClick={() => gerarModelo("modelo_proposta")}
+                    title={semEdital ? MOTIVO_SEM_EDITAL : undefined}
                   >
                     {gerandoModelo === "modelo_proposta"
                       ? "Montando proposta..."
@@ -999,14 +1056,32 @@ function ChatAnalise() {
                   <button
                     type="button"
                     className="botao botao-secundario"
-                    disabled={pensando || gerandoModelo !== null}
+                    disabled={pensando || gerandoModelo !== null || semEdital}
                     onClick={() => gerarModelo("modelo_declaracoes")}
+                    title={semEdital ? MOTIVO_SEM_EDITAL : undefined}
                   >
                     {gerandoModelo === "modelo_declaracoes"
                       ? "Montando declarações..."
                       : "✍️ Modelo de declarações"}
                   </button>
                 </div>
+
+                {/* Em texto, e não só no title: no celular não existe hover, e
+                    botão desabilitado sem explicação parece defeito. */}
+                {semEdital && (
+                  <p className="aviso-acao">
+                    Anexe o edital acima para liberar resumo, proposta e
+                    declarações — os três são montados a partir do documento.
+                  </p>
+                )}
+                {planilhaBloqueada && (
+                  <p className="aviso-acao">
+                    <strong>Planilha de materiais indisponível:</strong>{" "}
+                    {statusMateriais?.motivo}
+                    {statusMateriais?.motivo?.includes("não publicou") &&
+                      " — os itens podem estar no PDF do edital, mas quantidade e valor só saem daqui quando o PNCP os publica de forma estruturada."}
+                  </p>
+                )}
                 <p className="ajuda">
                   O resumo estrutura o edital anexado (objeto, habilitação,
                   riscos, questionamentos) e não inventa dados. A planilha sai
@@ -1015,7 +1090,7 @@ function ChatAnalise() {
                   PNCP. Proposta e declarações saem em Word, com os campos em
                   branco para preencher, seguindo os anexos do edital.
                 </p>
-                {avisoPlanilha && <p className="ajuda">{avisoPlanilha}</p>}
+                {avisoPlanilha && <p className="aviso-acao">{avisoPlanilha}</p>}
               </>
             )}
           </div>
