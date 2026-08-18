@@ -541,8 +541,30 @@ Deno.serve(async (req) => {
 
     const ehAnaliseNova = corpo?.acao === "analisar_arquivo" ||
       typeof corpo?.pdf_base64 === "string";
+
+    /**
+     * A conversa já tinha documento antes desta chamada?
+     *
+     * Importa para a cobrança: o app anexa automaticamente TODOS os arquivos do
+     * PNCP ao abrir a licitação, e edital costuma vir partido em vários (capa,
+     * convocatório, termo de referência, minuta, anexos). Cobrar por arquivo
+     * faria uma licitação consumir cinco das dez análises do teste grátis. A
+     * unidade cobrada é a licitação analisada: o primeiro anexo debita, os
+     * demais completam o mesmo contexto.
+     */
+    let jaTinhaDocumento = false;
+    if (ehAnaliseNova && typeof corpo?.conversa_id === "string") {
+      const { data: anterior } = await supabase
+        .from("conversas_ia")
+        .select("documento_texto")
+        .eq("id", corpo.conversa_id)
+        .maybeSingle();
+      jaTinhaDocumento = Boolean(anterior?.documento_texto);
+    }
+    // Só a primeira peça do edital passa pelo teto: barrar a segunda deixaria o
+    // contexto pela metade depois de já ter debitado a análise.
     if (
-      ehAnaliseNova && assinatura.estado !== "admin" &&
+      ehAnaliseNova && !jaTinhaDocumento && assinatura.estado !== "admin" &&
       assinatura.usadas >= assinatura.limite
     ) {
       await registrarEvento(service, {
@@ -594,7 +616,10 @@ Deno.serve(async (req) => {
     }
     if (parcial) return resposta;
 
-    if (ehAnaliseNova && resposta.status === 200 && assinatura.estado !== "admin") {
+    if (
+      ehAnaliseNova && !jaTinhaDocumento && resposta.status === 200 &&
+      assinatura.estado !== "admin"
+    ) {
       await debitarAnalise(service, user.id);
     }
 
