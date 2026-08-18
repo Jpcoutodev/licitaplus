@@ -875,18 +875,38 @@ Bullets curtos com o que está sendo contratado.
 
 ## Informações Principais
 Tabela markdown com duas colunas (| Item | Informação |). Inclua, quando
-houver: modalidade, critério de julgamento, modo de disputa, data/hora da
-sessão pública, vigência, valor estimado total, valores parciais relevantes,
-participação ME/EPP.
+houver: modalidade, critério de julgamento, modo de disputa, forma de
+participação (ampla, exclusiva ME/EPP, cota reservada, consórcio permitido ou
+vedado), plataforma eletrônica onde ocorre o certame (ex.: Compras.gov.br, BLL,
+Licitanet, Portal de Compras Públicas), data/hora da sessão pública, endereço
+físico da Administração (entrega, vistoria ou sessão presencial), vigência,
+valor estimado total, valores parciais relevantes.
 
 ## Escopo dos Serviços / Fornecimento
 O que a contratada deverá executar ou entregar (use subitens se ajudar).
 
-## Exigências Técnicas e de Habilitação
-Registros, certidões, responsável técnico, equipe mínima, atestados, normas.
+## Habilitação Jurídica
+Documentos societários e certidões exigidas.
 
-## Obrigações Relevantes da Contratada
-Bullets com as principais obrigações.
+## Habilitação Econômico-Financeira
+Índices contábeis com os valores exigidos (ex.: liquidez corrente ≥ 1,0),
+capital social ou patrimônio líquido mínimo, balanço patrimonial, certidão de
+falência. Transcreva os números exigidos; não arredonde.
+
+## Habilitação Técnica
+Registro no conselho de classe, responsável técnico e a forma de vínculo aceita
+(empregado, sócio, contrato de prestação de serviços), ART/CAT, atestados de
+capacidade técnica com os quantitativos mínimos, se o edital admite SOMA de
+atestados (cumulativo) ou exige um único atestado, equipe mínima, vistoria.
+
+## Valores Inexequíveis
+Critério ou índice que o edital usa para considerar a proposta inexequível e o
+item do edital que prevê isso. Se o edital não fixa critério, diga isso
+expressamente — a ausência é relevante para precificar.
+
+## Subcontratação
+Se é permitida, com que limite ou percentual, e o que não pode ser
+subcontratado.
 
 ## Garantia Contratual
 Percentual/forma, se exigida; senão, "não informado no edital".
@@ -897,31 +917,84 @@ Prazo e condições.
 ## Penalidades
 Advertência, multas (percentuais), impedimento, inidoneidade — conforme o edital.
 
-## Pontos de Atenção para o Fornecedor
-Bullets iniciados com ✅ destacando o que mais pesa na decisão de participar.
+## Obrigações Relevantes da Contratada
+Bullets com as principais obrigações.
+
+## Contrato Pós-Certame
+Da minuta do contrato: vigência e prorrogação, reajuste ou repactuação,
+fiscalização e gestor, recebimento provisório/definitivo, hipóteses de rescisão
+e alterações contratuais.
+
+## Avaliação de Risco
+Tabela markdown (| Risco | Por que importa | Gravidade |), com gravidade alta,
+média ou baixa. Cubra risco de habilitação (exigência difícil de cumprir), de
+execução (prazo, equipe, local), financeiro (preço, garantia, pagamento) e
+contratual. Só riscos que decorrem do que está escrito no edital.
 
 ## Conclusão
 2 a 4 frases: complexidade, exigências-chave, valor estimado e critério de
 disputa. Não dê veredito categórico de "participe/não participe" — aponte os
-fatores.`;
+fatores.
+
+## Questionamentos ao Órgão
+Perguntas prontas para enviar como pedido de esclarecimento ou impugnação,
+sobre pontos omissos, contraditórios ou possivelmente restritivos à
+competição — por exemplo exigência sem previsão legal, atestado com
+quantitativo desproporcional, prazo exíguo, ausência de critério de
+inexequibilidade, planilha ou anexo mencionado e não disponibilizado.
+
+Regras desta seção:
+- Escreva cada item como PERGUNTA dirigida ao órgão, não como afirmação de
+  ilegalidade.
+- Cite dispositivo da Lei 14.133/2021 SOMENTE se tiver certeza do artigo. Na
+  dúvida, faça a pergunta sem citar número de artigo — é melhor não citar do
+  que citar errado.
+- Aponte só o que decorre do próprio edital. Se o edital estiver completo e
+  claro nos pontos acima, escreva "nenhum ponto omisso ou falho identificado".`;
 
 /** Tamanho-alvo de cada parte no modo mapa-e-redução (documentos grandes). */
 const CHUNK_RESUMO = 120_000;
 /** Máximo de partes processadas (limita nº de chamadas à IA e o tempo). */
-const MAX_CHUNKS_RESUMO = 6;
+const MAX_CHUNKS_RESUMO = 8;
+/**
+ * Teto de saída do resumo. O relatório cobre habilitação em três blocos,
+ * contrato pós-certame, avaliação de risco e questionamentos: com 4096 tokens
+ * ele terminava cortado no meio de uma frase.
+ */
+const MAX_TOKENS_RESUMO = 8192;
 
 const INSTRUCOES_MAP =
   `Você recebe UMA PARTE de um edital de licitação. Extraia, em NOTAS curtas
 (bullets), apenas os fatos presentes NESTA PARTE que interessam a um resumo
-executivo: objeto, modalidade e número, critério de julgamento, modo de disputa,
-data/hora da sessão, vigência, valores (estimado, garantias, parcelas), ME/EPP,
-escopo dos serviços, exigências técnicas e de habilitação, obrigações da
-contratada, garantia contratual, condições de pagamento, penalidades, SLA e
-prazos.
+executivo.
+
+O QUE PROCURAR (a lista espelha as seções do resumo final — se um destes
+aparecer nesta parte, ele TEM que virar nota):
+- objeto, modalidade e número, critério de julgamento, modo de disputa;
+- forma de participação: ampla, exclusiva ME/EPP, cota reservada, consórcio;
+- plataforma eletrônica do certame (Compras.gov.br, BLL, Licitanet, Portal de
+  Compras Públicas etc.) e endereço físico da Administração (entrega, vistoria,
+  sessão presencial);
+- data/hora da sessão pública, vigência, valores (estimado, parcelas, garantia);
+- escopo dos serviços ou do fornecimento;
+- habilitação jurídica: documentos societários e certidões;
+- habilitação econômico-financeira: índices contábeis COM os valores exigidos,
+  capital social ou patrimônio líquido mínimo, balanço, certidão de falência;
+- habilitação técnica: registro em conselho, responsável técnico e forma de
+  vínculo aceita, ART/CAT, atestados e seus quantitativos mínimos, se admite
+  soma de atestados (cumulativo), equipe mínima, vistoria;
+- critério de valor inexequível e o item do edital que o prevê;
+- subcontratação: permissão, limites, percentuais, o que não pode;
+- garantia contratual, condições de pagamento, penalidades, SLA e prazos;
+- obrigações da contratada;
+- cláusulas da minuta do contrato: vigência e prorrogação, reajuste ou
+  repactuação, fiscalização e gestor, recebimento, rescisão, alterações.
 
 REGRAS:
 - Use SOMENTE o que está escrito nesta parte. NUNCA invente ou deduza.
 - Não escreva um resumo em prosa; escreva notas objetivas com o dado e o valor.
+  Transcreva números (índices, percentuais, quantitativos) como estão.
+- Anote também o item/cláusula do edital de onde veio o dado, quando aparecer.
 - Se esta parte não tiver nada relevante, responda apenas: "Sem informações
   relevantes nesta parte."`;
 
@@ -953,8 +1026,15 @@ async function resumoMapReduce(
   itens: ItemContratacaoPNCP[] | null,
 ): Promise<string> {
   const limite = CHUNK_RESUMO * MAX_CHUNKS_RESUMO;
-  const usado = texto.slice(0, limite);
   const truncado = texto.length > limite;
+  // Quando não cabe tudo, o corte tira o MEIO e não o fim: a minuta do
+  // contrato e os anexos moram nas últimas páginas do edital, e eram justamente
+  // eles que ficavam de fora quando o corte era um simples slice do começo.
+  const usado = truncado
+    ? texto.slice(0, limite - CHUNK_RESUMO) +
+      "\n\n[...trecho intermediário omitido por extensão...]\n\n" +
+      texto.slice(-CHUNK_RESUMO)
+    : texto;
   const blocos = dividirEmBlocos(usado, CHUNK_RESUMO);
 
   // MAP em paralelo: cada parte vira notas factuais do que ela contém.
@@ -988,7 +1068,9 @@ async function resumoMapReduce(
   }
   blocosReduce.push(
     `## Notas extraídas do edital "${docNome}"${
-      truncado ? " (documento muito extenso; as notas cobrem o início)" : ""
+      truncado
+        ? " (documento muito extenso; as notas cobrem o início e o fim, com um trecho intermediário omitido)"
+        : ""
     }\nEstas notas foram extraídas parte a parte do próprio edital. Baseie o resumo APENAS nelas e nos dados oficiais acima; não invente.\n\n${
       notas.join("\n\n")
     }`,
@@ -999,7 +1081,7 @@ async function resumoMapReduce(
       { role: "system", content: blocosReduce.join("\n\n") },
       { role: "user", content: "Gere o resumo executivo consolidando as notas." },
     ],
-    4096,
+    MAX_TOKENS_RESUMO,
   );
 }
 
@@ -1063,7 +1145,7 @@ async function modoResumoExecutivo(
         { role: "system", content: blocos.join("\n\n") },
         { role: "user", content: "Gere o resumo executivo deste edital." },
       ],
-      4096,
+      MAX_TOKENS_RESUMO,
     );
   }
 
@@ -1362,7 +1444,12 @@ function formatarLicitacao(l: LicitacaoContexto): string {
     `Órgão: ${l.orgao_razao_social ?? "?"} (${l.unidade_nome ?? "?"})`,
     `Local: ${l.municipio_nome ?? "?"}/${l.uf ?? "?"}`,
     `Modalidade: ${l.modalidade_nome ?? "?"} | Situação: ${l.situacao_nome ?? "?"}`,
-    l.link_sistema_origem ? `Link: ${l.link_sistema_origem}` : null,
+    // O domínio do link costuma ser a própria plataforma do certame (BLL,
+    // Licitanet, Portal de Compras Públicas, Compras.gov.br), que o corpo do
+    // edital muitas vezes não nomeia. Dito assim, a IA pode usar sem deduzir.
+    l.link_sistema_origem
+      ? `Link do sistema de origem (o domínio indica a plataforma do certame): ${l.link_sistema_origem}`
+      : null,
   ].filter(Boolean).join("\n");
 }
 
