@@ -1280,6 +1280,19 @@ REGRA ABSOLUTA — NÃO INVENTE NADA:
   percentuais ou exigências.
 - Não copie parágrafos inteiros do edital; sintetize em linguagem clara.
 
+FORMA DE ESCREVER (o leitor é o dono da empresa, não conhece o funcionamento
+interno do sistema):
+- NÃO reproduza no resumo as seções de contexto que você recebeu ("Dados
+  oficiais da licitação (PNCP)", "Itens do edital", "Notas extraídas"). Elas são
+  a sua fonte; o resumo é só o relatório pedido abaixo. Use os dados dentro das
+  seções próprias.
+- NUNCA escreva "não consta nas notas extraídas", "não foi extraído" ou
+  equivalente. Se a informação faltar, escreva apenas "não informado no edital".
+  O leitor não sabe o que é uma nota extraída, e a frase soa como falha do
+  sistema.
+- Datas e horas: escreva como estão nos dados fornecidos, que já vêm no horário
+  de Brasília. Nunca acrescente "UTC" nem converta fuso.
+
 FORMATO (markdown, exatamente estas seções, nesta ordem; pule uma seção só se o
 edital realmente não tratar do assunto):
 
@@ -1379,6 +1392,15 @@ const MAX_CHUNKS_RESUMO = 8;
  * ele terminava cortado no meio de uma frase.
  */
 const MAX_TOKENS_RESUMO = 8192;
+/**
+ * Teto das notas de CADA parte, no modo mapa-e-redução.
+ *
+ * Era 1500 — cerca de 4 mil caracteres de notas para 120 mil de edital. Não
+ * cabia um capítulo de habilitação, então o extrator comprimia e o resumo final
+ * dizia "não consta nas notas extraídas" para exigências que estavam no edital.
+ * O gargalo é a saída da extração, não a entrada.
+ */
+const MAX_TOKENS_NOTAS = 4000;
 
 const INSTRUCOES_MAP =
   `Você recebe UMA PARTE de um edital de licitação. Extraia, em NOTAS curtas
@@ -1412,6 +1434,12 @@ REGRAS:
 - Não escreva um resumo em prosa; escreva notas objetivas com o dado e o valor.
   Transcreva números (índices, percentuais, quantitativos) como estão.
 - Anote também o item/cláusula do edital de onde veio o dado, quando aparecer.
+- HABILITAÇÃO E PENALIDADES NÃO SE RESUMEM: se esta parte tiver capítulo de
+  habilitação (jurídica, econômico-financeira, técnica), de sanções ou de
+  pagamento, liste CADA exigência em sua própria linha, com o item do edital.
+  Uma linha dizendo "exige documentos de habilitação" é inútil para quem vai
+  decidir se consegue se habilitar — é o erro mais caro que você pode cometer
+  aqui. Prefira notas longas a notas econômicas.
 - Se esta parte não tiver nada relevante, responda apenas: "Sem informações
   relevantes nesta parte."`;
 
@@ -1466,7 +1494,7 @@ async function resumoMapReduce(
               content: `Parte ${i + 1} de ${blocos.length} do edital:\n\n${bloco}`,
             },
           ],
-          1500,
+          MAX_TOKENS_NOTAS,
         );
         return `### Notas da parte ${i + 1}\n${r}`;
       } catch {
@@ -1488,7 +1516,7 @@ async function resumoMapReduce(
       truncado
         ? " (documento muito extenso; as notas cobrem o início e o fim, com um trecho intermediário omitido)"
         : ""
-    }\nEstas notas foram extraídas parte a parte do próprio edital. Baseie o resumo APENAS nelas e nos dados oficiais acima; não invente.\n\n${
+    }\nEstas notas foram extraídas parte a parte do próprio edital. Baseie o resumo APENAS nelas e nos dados oficiais acima; não invente. Para o leitor, elas SÃO o edital: nunca mencione "notas" no resumo nem diga que algo "não foi extraído" — se faltar, é "não informado no edital".\n\n${
       notas.join("\n\n")
     }`,
   );
@@ -1848,6 +1876,32 @@ async function carregarFavoritas(
     .filter(Boolean);
 }
 
+/**
+ * Prazo do PNCP em texto, no horário de Brasília.
+ *
+ * A coluna é timestamptz mas guarda o relógio de parede de Brasília (o PNCP
+ * publica sem fuso e a coleta grava como está), então formatar em UTC devolve a
+ * hora do edital. Entregar o ISO cru fazia a IA ler "+00:00" e escrever "08:00
+ * (horário UTC)" no resumo, três horas fora do que está no edital.
+ */
+function prazoEmBrasilia(iso: string | null): string {
+  if (!iso) return "não informada";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p: Record<string, string> = {};
+  for (
+    const parte of new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(d)
+  ) p[parte.type] = parte.value;
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute} (horário de Brasília)`;
+}
+
 function formatarLicitacao(l: LicitacaoContexto): string {
   return [
     `Controle PNCP: ${l.numero_controle_pncp}`,
@@ -1856,8 +1910,8 @@ function formatarLicitacao(l: LicitacaoContexto): string {
       ? `Informação complementar: ${l.informacao_complementar.slice(0, 1500)}`
       : null,
     `Valor total estimado: ${l.valor_total_estimado ?? "não informado"}`,
-    `Abertura das propostas: ${l.data_abertura_proposta ?? "não informada"}`,
-    `Encerramento das propostas: ${l.data_encerramento_proposta ?? "não informado"}`,
+    `Abertura das propostas: ${prazoEmBrasilia(l.data_abertura_proposta)}`,
+    `Encerramento das propostas: ${prazoEmBrasilia(l.data_encerramento_proposta)}`,
     `Órgão: ${l.orgao_razao_social ?? "?"} (${l.unidade_nome ?? "?"})`,
     `Local: ${l.municipio_nome ?? "?"}/${l.uf ?? "?"}`,
     `Modalidade: ${l.modalidade_nome ?? "?"} | Situação: ${l.situacao_nome ?? "?"}`,
