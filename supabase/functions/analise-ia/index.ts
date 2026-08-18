@@ -1027,17 +1027,21 @@ async function modoDocumentoModelo(
     }`,
   );
 
-  let markdown = await conversarComIA(
-    [
-      { role: "system", content: blocos.join("\n\n") },
-      {
-        role: "user",
-        content: ehProposta
-          ? "Monte a proposta comercial conforme o modelo do edital."
-          : "Monte as declarações exigidas por este edital.",
-      },
-    ],
-    4096,
+  // O eco do contexto sai ANTES de injetar a planilha: cortar depois levaria a
+  // tabela junto, porque o corte vai do título ecoado até o fim.
+  let markdown = removerEcoDoContexto(
+    await conversarComIA(
+      [
+        { role: "system", content: blocos.join("\n\n") },
+        {
+          role: "user",
+          content: ehProposta
+            ? "Monte a proposta comercial conforme o modelo do edital."
+            : "Monte as declarações exigidas por este edital.",
+        },
+      ],
+      4096,
+    ),
   );
 
   if (ehProposta) {
@@ -1382,6 +1386,24 @@ Regras desta seção:
 - Aponte só o que decorre do próprio edital. Se o edital estiver completo e
   claro nos pontos acima, escreva "nenhum ponto omisso ou falho identificado".`;
 
+/**
+ * Corta do relatório o eco das seções de CONTEXTO.
+ *
+ * O material que vai no prompt tem títulos markdown ("## Dados oficiais da
+ * licitação (PNCP)", "## Itens do edital", "## Notas extraídas") e o modelo
+ * insiste em copiá-los para o fim da resposta, entregando ao usuário a matéria-
+ * prima junto com o relatório. Pedir no prompt para não fazer isso reduziu, mas
+ * não eliminou — então o corte é aqui, onde é determinístico. Nenhuma seção do
+ * relatório usa esses títulos, então cortar do primeiro deles até o fim é seguro.
+ */
+function removerEcoDoContexto(markdown: string): string {
+  const padrao =
+    /^#{1,6}\s*(dados oficiais|itens do edital|notas extraídas|notas extraidas)/im;
+  const achado = markdown.match(padrao);
+  if (!achado || achado.index === undefined) return markdown.trim();
+  return markdown.slice(0, achado.index).trim();
+}
+
 /** Tamanho-alvo de cada parte no modo mapa-e-redução (documentos grandes). */
 const CHUNK_RESUMO = 120_000;
 /** Máximo de partes processadas (limita nº de chamadas à IA e o tempo). */
@@ -1603,7 +1625,7 @@ async function modoResumoExecutivo(
       modo: grande ? "mapa_reduce" : "inteiro",
     }),
   );
-  return respostaJson({ resposta }, 200);
+  return respostaJson({ resposta: removerEcoDoContexto(resposta) }, 200);
 }
 
 async function modoConversa(
