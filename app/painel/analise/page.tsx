@@ -104,6 +104,11 @@ function ChatAnalise() {
 
   const [favoritas, setFavoritas] = useState<OpcaoFavorita[]>([]);
   const [participando, setParticipando] = useState<Set<string>>(new Set());
+  const [gerandoPlanilha, setGerandoPlanilha] = useState(false);
+  const [avisoPlanilha, setAvisoPlanilha] = useState<string | null>(null);
+  /** Identificação de quem cota, para o topo da planilha. */
+  const [nomeEmpresa, setNomeEmpresa] = useState<string | null>(null);
+  const [emailUsuario, setEmailUsuario] = useState<string | null>(null);
   const [licitacaoId, setLicitacaoId] = useState<string>(preSelecionada ?? "");
   const [conversaId, setConversaId] = useState<string | null>(null);
   const [mensagens, setMensagens] = useState<MensagemChat[]>([]);
@@ -153,6 +158,15 @@ function ChatAnalise() {
       setParticipando(
         new Set((participacoes ?? []).map((p) => p.licitacao_id as string)),
       );
+
+      // Identificação da própria empresa, que vai no topo da planilha.
+      const { data: { user } } = await supabase.auth.getUser();
+      setEmailUsuario(user?.email ?? null);
+      const { data: conta } = await supabase
+        .from("contas")
+        .select("nome_empresa")
+        .maybeSingle();
+      setNomeEmpresa((conta?.nome_empresa as string) ?? null);
     }
     void carregarFavoritas();
   }, []);
@@ -530,6 +544,130 @@ function ChatAnalise() {
     }
   }
 
+  /**
+   * Planilha de materiais (.xlsx). Só vale para licitação de compras: quem
+   * decide isso é o campo materialOuServico dos itens do PNCP, checado no
+   * servidor — se vier serviço, o botão explica em vez de baixar um arquivo
+   * vazio.
+   */
+  async function gerarPlanilhaMateriais() {
+    if (!licitacaoId || gerandoPlanilha) return;
+    setGerandoPlanilha(true);
+    setAvisoPlanilha(null);
+    setErro(null);
+    try {
+      const supabase = criarClientNavegador();
+      const { data, error } = await supabase.functions.invoke("analise-ia", {
+        body: {
+          acao: "planilha_materiais",
+          licitacao_id: licitacaoId,
+          conversa_id: conversaId,
+        },
+      });
+      if (error) {
+        throw new Error(
+          await mensagemDaFuncao(error, "não foi possível montar a planilha"),
+        );
+      }
+
+      const r = data as {
+        eh_material?: boolean;
+        motivo?: string;
+        com_edital?: boolean;
+        itens_servico_ignorados?: number;
+        orcamento_sigiloso?: boolean;
+        licitacao?: {
+          numero_controle_pncp?: string;
+          objeto?: string;
+          municipio?: string;
+          uf?: string;
+          modalidade?: string;
+        };
+        cabecalho?: Record<string, string | null>;
+        itens?: Array<Record<string, unknown>>;
+      };
+
+      if (!r?.eh_material) {
+        setAvisoPlanilha(
+          r?.motivo ?? "esta licitação não é de materiais, então não há planilha a gerar.",
+        );
+        return;
+      }
+
+      const { gerarPlanilhaMateriais: montar } = await import(
+        "@/lib/planilha-xlsx"
+      );
+      const bytes = montar({
+        empresa: nomeEmpresa,
+        email: emailUsuario,
+        objeto: r.licitacao?.objeto ?? null,
+        numeroControlePncp: r.licitacao?.numero_controle_pncp ?? null,
+        municipio: r.licitacao?.municipio ?? null,
+        uf: r.licitacao?.uf ?? null,
+        modalidade: r.licitacao?.modalidade ?? null,
+        cabecalho: {
+          data_certame: r.cabecalho?.data_certame ?? null,
+          data_limite: r.cabecalho?.data_limite ?? null,
+          orgao: r.cabecalho?.orgao ?? null,
+          local_entrega: r.cabecalho?.local_entrega ?? null,
+          prazo_entrega: r.cabecalho?.prazo_entrega ?? null,
+          forma_entrega: r.cabecalho?.forma_entrega ?? null,
+          registro_preco: r.cabecalho?.registro_preco ?? null,
+          forma_pagamento: r.cabecalho?.forma_pagamento ?? null,
+          amostra_catalogo: r.cabecalho?.amostra_catalogo ?? null,
+        },
+        itens: (r.itens ?? []).map((i) => ({
+          numero: (i.numero as number) ?? null,
+          descricao: (i.descricao as string) ?? null,
+          quantidade: (i.quantidade as number) ?? null,
+          unidade: (i.unidade as string) ?? null,
+          valor_unitario: (i.valor_unitario as number) ?? null,
+          valor_total: (i.valor_total as number) ?? null,
+        })),
+      });
+
+      const blob = new Blob([bytes as BlobPart], {
+        type:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `planilha-materiais-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      // O que o usuário precisa saber para conferir antes de cotar.
+      const notas: string[] = [`${r.itens?.length ?? 0} itens na planilha.`];
+      if (!r.com_edital) {
+        notas.push(
+          "Sem edital anexado: entrega, pagamento e amostra ficaram em branco — anexe o edital e gere de novo para preenchê-los.",
+        );
+      }
+      if (r.itens_servico_ignorados) {
+        notas.push(
+          `${r.itens_servico_ignorados} item(ns) de serviço ficaram de fora.`,
+        );
+      }
+      if (r.orcamento_sigiloso) {
+        notas.push(
+          "Orçamento sigiloso: o órgão não divulga o valor de referência, então essa coluna vem vazia.",
+        );
+      }
+      setAvisoPlanilha(notas.join(" "));
+    } catch (excecao) {
+      setErro(
+        excecao instanceof Error
+          ? `Não foi possível montar a planilha: ${excecao.message}`
+          : "Não foi possível montar a planilha de materiais.",
+      );
+    } finally {
+      setGerandoPlanilha(false);
+    }
+  }
+
   /** Baixa o resumo executivo (markdown) como um arquivo Word (.docx). */
   async function baixarResumoDocx(markdown: string) {
     try {
@@ -767,19 +905,32 @@ function ChatAnalise() {
               <EsperaIA frases={FRASES_RESUMO} intervaloMs={3400} />
             ) : (
               <>
-                <button
-                  type="button"
-                  className="botao"
-                  disabled={pensando}
-                  onClick={gerarResumoExecutivo}
-                >
-                  📋 Resumo executivo
-                </button>
+                <div className="acoes-documento">
+                  <button
+                    type="button"
+                    className="botao"
+                    disabled={pensando}
+                    onClick={gerarResumoExecutivo}
+                  >
+                    📋 Resumo executivo
+                  </button>
+                  <button
+                    type="button"
+                    className="botao botao-secundario"
+                    disabled={pensando || gerandoPlanilha}
+                    onClick={gerarPlanilhaMateriais}
+                  >
+                    {gerandoPlanilha ? "Montando planilha..." : "📊 Planilha materiais"}
+                  </button>
+                </div>
                 <p className="ajuda">
-                  Gera um resumo estruturado do edital anexado (objeto, valores,
-                  exigências, prazos, penalidades). Exige o edital no contexto e
-                  não inventa dados.
+                  O resumo estrutura o edital anexado (objeto, habilitação,
+                  riscos, questionamentos) e não inventa dados. A planilha sai
+                  em Excel com um item por linha e só funciona em licitação de
+                  materiais — quantidades e valores de referência vêm da API do
+                  PNCP.
                 </p>
+                {avisoPlanilha && <p className="ajuda">{avisoPlanilha}</p>}
               </>
             )}
           </div>

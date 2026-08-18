@@ -3375,3 +3375,12 @@ main.container {
   color: var(--texto-suave);
   margin: 0;
 }
+
+/* Resumo executivo + planilha de materiais, lado a lado */
+.acoes-documento {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+}

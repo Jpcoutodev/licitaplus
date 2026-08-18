@@ -255,6 +255,13 @@ export interface ItemContratacaoPNCP {
   valorUnitarioEstimado: number | null;
   valorTotal: number | null;
   situacaoCompraItemNome: string | null;
+  /** "M" = material, "S" = serviço. É o que diz se a licitação é de compras. */
+  materialOuServico: string | null;
+  /**
+   * Orçamento sigiloso: o órgão não divulga o valor de referência. Explica
+   * valor unitário nulo ou zerado sem ser falha de coleta.
+   */
+  orcamentoSigiloso: boolean | null;
 }
 
 function urlBaseApiPncp(): string {

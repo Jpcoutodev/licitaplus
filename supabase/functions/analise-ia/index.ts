@@ -530,6 +530,12 @@ Deno.serve(async (req) => {
       return await modoListarArquivos(supabase, corpo);
     }
 
+    // Planilha de materiais: os números vêm da API do PNCP, não da IA. Só o
+    // cabeçalho (entrega, pagamento, amostra) sai do edital, quando anexado.
+    if (corpo?.acao === "planilha_materiais") {
+      return await modoPlanilhaMateriais(supabase, corpo);
+    }
+
     const ehAnaliseNova = corpo?.acao === "analisar_arquivo" ||
       typeof corpo?.pdf_base64 === "string";
     if (
@@ -638,6 +644,175 @@ async function modoListarArquivos(
     licitacao.numero_controle_pncp,
   );
   return respostaJson({ arquivos: arquivos ?? [] }, 200);
+}
+
+/** Campos do cabeçalho da planilha que só o edital informa. */
+const CAMPOS_DO_EDITAL = [
+  "data_certame",
+  "local_entrega",
+  "prazo_entrega",
+  "forma_entrega",
+  "registro_preco",
+  "forma_pagamento",
+  "amostra_catalogo",
+] as const;
+
+const INSTRUCOES_PLANILHA =
+  `Você extrai dados de um edital de licitação para preencher o cabeçalho de uma
+planilha de cotação de materiais.
+
+Responda APENAS com JSON válido, sem cercas de código, exatamente neste formato:
+{"data_certame": string|null, "local_entrega": string|null, "prazo_entrega":
+string|null, "forma_entrega": string|null, "registro_preco": string|null,
+"forma_pagamento": string|null, "amostra_catalogo": string|null}
+
+O que cada campo é:
+- data_certame: data e hora da sessão pública de disputa, como está no edital.
+- local_entrega: onde os materiais devem ser entregues (endereço ou unidade).
+- prazo_entrega: prazo para entregar depois do pedido/empenho (ex.: "10 dias
+  corridos da ordem de fornecimento").
+- forma_entrega: parcelada, integral, sob demanda, cronograma.
+- registro_preco: "Sim — Sistema de Registro de Preços" ou "Não", conforme o
+  edital; inclua a vigência da ata se disser.
+- forma_pagamento: prazo e condição de pagamento.
+- amostra_catalogo: se exige amostra, catálogo, prospecto ou laudo — e quando
+  deve ser apresentado.
+
+REGRAS:
+- Use SOMENTE o texto do edital fornecido. NUNCA invente, estime ou deduza.
+- Campo que o edital não trata: null. Não escreva "não informado", use null.
+- Seja curto e literal: uma frase por campo, sem comentários.`;
+
+/**
+ * Planilha de materiais: dados estruturados para o navegador montar o .xlsx.
+ *
+ * Divisão de trabalho deliberada, igual à do extrator de contatos: os NÚMEROS
+ * (item, quantidade, unidade, valor de referência) vêm da API de itens do PNCP,
+ * nunca da IA — errar uma quantidade aqui é errar a proposta. A IA só lê o
+ * edital para o cabeçalho qualitativo (entrega, pagamento, amostra), e só
+ * quando há edital anexado à conversa.
+ *
+ * "É licitação de materiais?" também não é palpite: cada item do PNCP traz
+ * materialOuServico ("M" ou "S").
+ */
+async function modoPlanilhaMateriais(
+  supabase: ClienteSupabase,
+  corpo: Record<string, unknown>,
+): Promise<Response> {
+  const licitacao = await carregarLicitacao(supabase, corpo?.licitacao_id);
+  if (!licitacao) {
+    return respostaJson({ erro: "licitação não encontrada" }, 404);
+  }
+
+  const itens = await buscarItensContratacao(licitacao.numero_controle_pncp);
+  if (!itens || itens.length === 0) {
+    return respostaJson({
+      eh_material: false,
+      motivo:
+        "o PNCP não publicou a lista de itens desta licitação, então não há o que planilhar",
+    }, 200);
+  }
+
+  const materiais = itens.filter((i) => i.materialOuServico === "M");
+  const servicos = itens.length - materiais.length;
+  if (materiais.length === 0) {
+    return respostaJson({
+      eh_material: false,
+      motivo:
+        "esta licitação é de serviços: nenhum dos itens do PNCP está classificado como material",
+    }, 200);
+  }
+
+  // Cabeçalho: o que o PNCP sabe entra direto.
+  const cabecalho: Record<string, string | null> = {
+    data_certame: null,
+    data_limite: licitacao.data_encerramento_proposta ?? null,
+    orgao: [licitacao.orgao_razao_social, licitacao.unidade_nome]
+      .filter(Boolean)
+      .join(" — ") || null,
+    local_entrega: null,
+    prazo_entrega: null,
+    forma_entrega: null,
+    registro_preco: null,
+    forma_pagamento: null,
+    amostra_catalogo: null,
+  };
+
+  // O resto sai do edital anexado, se houver.
+  let comEdital = false;
+  const conversaId = await validarConversa(supabase, corpo?.conversa_id);
+  if (conversaId) {
+    const { data: conversa } = await supabase
+      .from("conversas_ia")
+      .select("documento_texto")
+      .eq("id", conversaId)
+      .maybeSingle();
+    const texto = conversa?.documento_texto as string | null;
+    if (texto && texto.length > 0) {
+      comEdital = true;
+      try {
+        const bruto = await conversarComIA(
+          [
+            { role: "system", content: INSTRUCOES_PLANILHA },
+            {
+              role: "user",
+              content: `Edital:\n\n${texto.slice(0, MAX_DOC_RESUMO)}`,
+            },
+          ],
+          800,
+        );
+        const limpo = bruto.replace(/```json|```/g, "").trim();
+        const inicio = limpo.indexOf("{");
+        const fim = limpo.lastIndexOf("}");
+        if (inicio >= 0 && fim > inicio) {
+          const extraido = JSON.parse(limpo.slice(inicio, fim + 1)) as Record<
+            string,
+            unknown
+          >;
+          for (const campo of CAMPOS_DO_EDITAL) {
+            const valor = extraido[campo];
+            if (typeof valor === "string" && valor.trim().length > 0) {
+              cabecalho[campo] = valor.trim();
+            }
+          }
+        }
+      } catch (erro) {
+        // Cabeçalho incompleto não impede a planilha: os itens são o essencial.
+        console.error(
+          JSON.stringify({
+            funcao: "analise-ia",
+            acao: "planilha_materiais",
+            erro: erro instanceof Error ? erro.message : String(erro),
+          }),
+        );
+      }
+    }
+  }
+
+  return respostaJson({
+    eh_material: true,
+    com_edital: comEdital,
+    itens_servico_ignorados: servicos,
+    // Orçamento sigiloso: o valor de referência vem zerado/nulo por decisão do
+    // órgão, não por falha da coleta — a planilha deixa a coluna vazia.
+    orcamento_sigiloso: materiais.some((i) => i.orcamentoSigiloso === true),
+    licitacao: {
+      numero_controle_pncp: licitacao.numero_controle_pncp,
+      objeto: licitacao.objeto_compra,
+      municipio: licitacao.municipio_nome,
+      uf: licitacao.uf,
+      modalidade: licitacao.modalidade_nome,
+    },
+    cabecalho,
+    itens: materiais.map((i) => ({
+      numero: i.numeroItem,
+      descricao: i.descricao,
+      quantidade: i.quantidade,
+      unidade: i.unidadeMedida,
+      valor_unitario: i.orcamentoSigiloso ? null : i.valorUnitarioEstimado,
+      valor_total: i.orcamentoSigiloso ? null : i.valorTotal,
+    })),
+  }, 200);
 }
 
 async function modoAnalisarArquivo(
