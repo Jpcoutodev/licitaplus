@@ -3397,3 +3397,13 @@ main.container {
   font-size: 13.5px;
   line-height: 1.5;
 }
+
+/* "Anexar todos" acima da lista de arquivos do PNCP */
+.linha-anexar-todos {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.linha-anexar-todos .ajuda { margin: 0; font-size: 13px; color: var(--texto-suave); }

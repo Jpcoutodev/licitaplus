@@ -139,6 +139,12 @@ function ChatAnalise() {
   const [analisandoSequencial, setAnalisandoSequencial] = useState<
     number | null
   >(null);
+  /**
+   * Arquivos do PNCP já anexados nesta sessão. Complementa a checagem pelo nome
+   * do documento (que o servidor corta em 160 caracteres, então com muitos
+   * anexos o nome deixa de conter todos).
+   */
+  const [anexados, setAnexados] = useState<Set<number>>(new Set());
   const [progresso, setProgresso] = useState<ProgressoLeitura>({
     totalPaginas: null,
     paginasLidas: 0,
@@ -193,6 +199,7 @@ function ChatAnalise() {
     setConversaId(null);
     setMensagens([]);
     setDocumento(null);
+    setAnexados(new Set());
 
     const supabase = criarClientNavegador();
     let consulta = supabase
@@ -373,8 +380,20 @@ function ChatAnalise() {
    * requisição em 2s de CPU — um edital de 228 páginas custa ~11s e morria
    * calado antes de responder qualquer coisa.
    */
-  async function analisarArquivo(arquivo: ArquivoLicitacao) {
-    if (analisandoSequencial !== null) return;
+  /**
+   * Este arquivo do PNCP já está no contexto? Dois sinais: o que anexamos nesta
+   * sessão e o nome do documento acumulado (que sobrevive a recarregar a
+   * página, quando não foi cortado).
+   */
+  function arquivoJaAnexado(arquivo: ArquivoLicitacao): boolean {
+    if (anexados.has(arquivo.sequencialDocumento)) return true;
+    const titulo = arquivo.titulo ?? `documento-${arquivo.sequencialDocumento}`;
+    return Boolean(documento?.nome.includes(titulo));
+  }
+
+  /** Anexa um arquivo do PNCP ao contexto. Devolve false se falhou. */
+  async function analisarArquivo(arquivo: ArquivoLicitacao): Promise<boolean> {
+    if (analisandoSequencial !== null) return false;
     setErro(null);
     setAnalisandoSequencial(arquivo.sequencialDocumento);
     setProgresso({ totalPaginas: null, paginasLidas: 0, finalizando: false });
@@ -426,7 +445,10 @@ function ChatAnalise() {
           throw new Error("não foi possível ler o arquivo");
         }
         refletirDocumento(resposta);
-        return;
+        setAnexados((atual) =>
+          new Set(atual).add(arquivo.sequencialDocumento)
+        );
+        return true;
       }
 
       throw new Error(
@@ -438,9 +460,32 @@ function ChatAnalise() {
           ? `Não deu para analisar: ${excecao.message}`
           : "Não deu para analisar o arquivo.",
       );
+      return false;
     } finally {
       setAnalisandoSequencial(null);
       setProgresso({ totalPaginas: null, paginasLidas: 0, finalizando: false });
+    }
+  }
+
+  /**
+   * Anexa de uma vez todos os arquivos do PNCP que ainda não estão no contexto.
+   *
+   * Existe porque a lista com um botão por arquivo convidava a anexar só o
+   * primeiro — e edital costuma vir partido (capa, instrumento convocatório,
+   * termo de referência, minuta). Anexar só a capa faz o resumo dizer, com
+   * razão, que não há informação: ele leu tudo o que recebeu.
+   *
+   * Um por vez, em série: cada arquivo grande é lido em faixas e o servidor
+   * acumula o texto na mesma conversa.
+   */
+  async function anexarTodosOsArquivos() {
+    if (analisandoSequencial !== null) return;
+    const pendentes = arquivos.filter((a) => !arquivoJaAnexado(a));
+    for (const arquivo of pendentes) {
+      // O retorno diz se deu certo; ler o estado `erro` aqui pegaria o valor
+      // da renderização anterior.
+      const ok = await analisarArquivo(arquivo);
+      if (!ok) break;
     }
   }
 
@@ -500,6 +545,7 @@ function ChatAnalise() {
     // Remoção manual: o anexo automático não deve trazer o documento de volta.
     autoAnexo.current = licitacaoId;
     setDocumento(null);
+    setAnexados(new Set());
     if (conversaId) {
       const supabase = criarClientNavegador();
       await supabase
@@ -522,6 +568,7 @@ function ChatAnalise() {
     if (!conversaId) {
       setMensagens([]);
       setDocumento(null);
+    setAnexados(new Set());
       return;
     }
     const supabase = criarClientNavegador();
@@ -529,6 +576,7 @@ function ChatAnalise() {
     setConversaId(null);
     setMensagens([]);
     setDocumento(null);
+    setAnexados(new Set());
     setErro(null);
   }
 
@@ -848,6 +896,12 @@ function ChatAnalise() {
   const semEdital = documento === null;
   const checandoMateriais = Boolean(licitacaoId) && statusMateriais === null;
   const planilhaBloqueada = statusMateriais?.ok === false;
+  const pendentes = arquivos.filter((a) => !arquivoJaAnexado(a)).length;
+  /**
+   * Anexou parte dos arquivos: é a causa mais comum de análise dizendo "não
+   * informado no edital" — o resumo leu tudo o que recebeu, e recebeu só a capa.
+   */
+  const anexoIncompleto = !semEdital && arquivos.length > 1 && pendentes > 0;
 
   return (
     <>
@@ -920,38 +974,67 @@ function ChatAnalise() {
                 Nenhum arquivo disponível no PNCP para esta licitação.
               </p>
             )}
-            {arquivos.map((arquivo) => (
-              <div key={arquivo.sequencialDocumento} className="linha-arquivo">
-                <span className="nome-arquivo">
-                  📄 {arquivo.titulo ?? `documento-${arquivo.sequencialDocumento}`}
-                  {arquivo.tipoDocumentoNome && (
-                    <span className="texto-suave">
-                      {" "}· {arquivo.tipoDocumentoNome}
-                    </span>
-                  )}
+            {/* Edital costuma vir partido (capa, convocatório, TR, minuta).
+                Anexar só um deixa a análise cega para o resto, então o caminho
+                de anexar tudo fica em primeiro plano. */}
+            {arquivos.length > 1 && (
+              <p className="linha-anexar-todos">
+                <button
+                  type="button"
+                  className="botao botao-mini"
+                  disabled={analisandoSequencial !== null || pendentes === 0}
+                  onClick={anexarTodosOsArquivos}
+                >
+                  {analisandoSequencial !== null
+                    ? "Anexando..."
+                    : pendentes === 0
+                    ? `✓ Todos os ${arquivos.length} arquivos no contexto`
+                    : `📎 Anexar todos (${pendentes})`}
+                </button>
+                <span className="ajuda">
+                  O edital vem partido em vários arquivos — a análise só vê o
+                  que estiver anexado.
                 </span>
-                <span className="acoes-arquivo">
-                  <a
-                    className="botao botao-secundario botao-mini"
-                    href={arquivo.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Baixar
-                  </a>
-                  <button
-                    type="button"
-                    className="botao botao-secundario botao-mini"
-                    disabled={analisandoSequencial !== null}
-                    onClick={() => analisarArquivo(arquivo)}
-                  >
-                    {analisandoSequencial === arquivo.sequencialDocumento
-                      ? "Anexando..."
-                      : "Anexar ao contexto da conversa"}
-                  </button>
-                </span>
-              </div>
-            ))}
+              </p>
+            )}
+            {arquivos.map((arquivo) => {
+              const jaAnexado = arquivoJaAnexado(arquivo);
+              return (
+                <div key={arquivo.sequencialDocumento} className="linha-arquivo">
+                  <span className="nome-arquivo">
+                    {jaAnexado ? "✅" : "📄"}{" "}
+                    {arquivo.titulo ?? `documento-${arquivo.sequencialDocumento}`}
+                    {arquivo.tipoDocumentoNome && (
+                      <span className="texto-suave">
+                        {" "}· {arquivo.tipoDocumentoNome}
+                      </span>
+                    )}
+                  </span>
+                  <span className="acoes-arquivo">
+                    <a
+                      className="botao botao-secundario botao-mini"
+                      href={arquivo.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Baixar
+                    </a>
+                    <button
+                      type="button"
+                      className="botao botao-secundario botao-mini"
+                      disabled={analisandoSequencial !== null || jaAnexado}
+                      onClick={() => analisarArquivo(arquivo)}
+                    >
+                      {analisandoSequencial === arquivo.sequencialDocumento
+                        ? "Anexando..."
+                        : jaAnexado
+                        ? "No contexto"
+                        : "Anexar ao contexto da conversa"}
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -1072,6 +1155,17 @@ function ChatAnalise() {
                   <p className="aviso-acao">
                     Anexe o edital acima para liberar resumo, proposta e
                     declarações — os três são montados a partir do documento.
+                  </p>
+                )}
+                {anexoIncompleto && (
+                  <p className="aviso-acao">
+                    <strong>
+                      Faltam {pendentes} de {arquivos.length} arquivos do PNCP.
+                    </strong>{" "}
+                    A análise só lê o que está anexado — se você gerar agora com
+                    apenas a capa, o resumo vai dizer "não informado no edital"
+                    na maioria das seções. Use <strong>Anexar todos</strong>{" "}
+                    acima antes de gerar.
                   </p>
                 )}
                 {planilhaBloqueada && (
