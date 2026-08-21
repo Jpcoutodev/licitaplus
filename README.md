@@ -90,6 +90,47 @@ npx supabase secrets set RESEND_FROM_EMAIL="SentinelaGov <alertas@seudominio.com
 Opcionais (têm padrão): `MINIMAX_MODEL` (MiniMax-M2) e `MINIMAX_API_BASE_URL`
 (https://api.minimax.io/v1).
 
+### Emails de autenticação (senha e confirmação de cadastro)
+
+Os emails de licitação saem pelo Resend, com o domínio do projeto. Os emails de
+**autenticação** são outra coisa: quem envia é o Auth do Supabase, que por
+padrão usa o remetente `noreply@mail.app.supabase.io`, em inglês e com rodapé
+"powered by Supabase". Além da aparência, esse remetente padrão é limitado a
+poucos emails por hora e o próprio Supabase não o recomenda em produção.
+
+Para o cliente receber do SentinelaGov, configure no dashboard:
+
+**1. SMTP próprio** — Authentication → Emails → SMTP Settings, com as
+credenciais SMTP do mesmo Resend que o app já usa:
+
+| Campo | Valor |
+| --- | --- |
+| Host | `smtp.resend.com` |
+| Porta | `465` (SSL) ou `587` (TLS) |
+| Usuário | `resend` |
+| Senha | a mesma chave de `RESEND_API_KEY` |
+| Sender email | um endereço do domínio verificado no Resend |
+| Sender name | `SentinelaGov` |
+
+**2. Templates** — Authentication → Emails, colando o conteúdo de
+`supabase/templates/recuperar-senha.html` em *Reset Password* e
+`supabase/templates/confirmar-cadastro.html` em *Confirm signup*.
+
+Os templates usam `{{ .TokenHash }}` apontando para `/auth/confirm`, e não
+`{{ .ConfirmationURL }}`. A diferença é prática: o ConfirmationURL passa pelo
+fluxo PKCE, que só funciona se o link for aberto no **mesmo navegador** que
+iniciou o pedido — quem pede a nova senha no computador e abre o email no
+celular fica travado. Com o token_hash, a verificação acontece no servidor e
+qualquer aparelho serve.
+
+O app funciona nos dois formatos (`/auth/callback` trata o `?code=` do
+ConfirmationURL e `/auth/confirm` trata o `token_hash`), então trocar o template
+não quebra nada — só melhora.
+
+**3. Redirect URLs** — Authentication → URL Configuration: a Site URL deve ser o
+domínio de produção, e `/auth/callback` e `/auth/confirm` precisam estar na
+lista de redirecionamentos permitidos.
+
 Depois, criar os segredos que o agendamento (pg_cron) usa para chamar a
 function — rodar **uma vez** no SQL Editor do projeto:
 
