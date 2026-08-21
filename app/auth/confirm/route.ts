@@ -24,10 +24,16 @@ export async function GET(request: Request) {
   }
 
   const supabase = await criarClientServidor();
-  const { error } = await supabase.auth.verifyOtp({
-    type: tipo,
-    token_hash: tokenHash,
-  });
+
+  // Token com prefixo "pkce_" não é OTP: é o código de autorização do fluxo
+  // PKCE, que o @supabase/ssr usa. Passá-lo para verifyOtp devolve sempre
+  // "Email link is invalid or has expired" — a troca certa é por sessão. Chega
+  // aqui quando o template de email usa {{ .TokenHash }} em vez de
+  // {{ .ConfirmationURL }}; tratar os dois evita link morto no email de quem
+  // configurou o template do jeito antigo.
+  const { error } = tokenHash.startsWith("pkce_")
+    ? await supabase.auth.exchangeCodeForSession(tokenHash.slice("pkce_".length))
+    : await supabase.auth.verifyOtp({ type: tipo, token_hash: tokenHash });
 
   if (error) {
     return NextResponse.redirect(

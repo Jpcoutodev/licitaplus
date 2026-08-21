@@ -116,20 +116,35 @@ credenciais SMTP do mesmo Resend que o app já usa:
 `supabase/templates/recuperar-senha.html` em *Reset Password* e
 `supabase/templates/confirmar-cadastro.html` em *Confirm signup*.
 
-Os templates usam `{{ .TokenHash }}` apontando para `/auth/confirm`, e não
-`{{ .ConfirmationURL }}`. A diferença é prática: o ConfirmationURL passa pelo
-fluxo PKCE, que só funciona se o link for aberto no **mesmo navegador** que
-iniciou o pedido — quem pede a nova senha no computador e abre o email no
-celular fica travado. Com o token_hash, a verificação acontece no servidor e
-qualquer aparelho serve.
+Os templates usam `{{ .ConfirmationURL }}`, e **não** `{{ .TokenHash }}`. O
+motivo é o fluxo de autenticação do app: `@supabase/ssr` trabalha em PKCE, e
+nesse fluxo o `{{ .TokenHash }}` sai com prefixo `pkce_` — que não é um token de
+OTP, é um código de autorização. Verificá-lo como OTP devolve sempre "Email link
+is invalid or has expired". O ConfirmationURL passa pelo verificador do próprio
+Supabase e volta para `/auth/callback`, que troca o código por sessão.
 
-O app funciona nos dois formatos (`/auth/callback` trata o `?code=` do
-ConfirmationURL e `/auth/confirm` trata o `token_hash`), então trocar o template
-não quebra nada — só melhora.
+Ganho colateral: o endereço de retorno vem do `redirectTo` que o app envia, ou
+seja, do domínio de quem pediu. Funciona em produção e em desenvolvimento sem
+depender do campo **Site URL**, que é um valor global único (se ele estiver como
+`http://localhost:3000`, todo link de email criado a partir de `.SiteURL` sai
+apontando para localhost — inclusive nos emails que chegam a clientes).
 
-**3. Redirect URLs** — Authentication → URL Configuration: a Site URL deve ser o
-domínio de produção, e `/auth/callback` e `/auth/confirm` precisam estar na
-lista de redirecionamentos permitidos.
+Limitação herdada do PKCE, que vale conhecer: o link precisa ser aberto **no
+mesmo navegador** onde foi pedido, porque o verificador fica num cookie daquele
+navegador. Pedir no computador e abrir no celular não funciona — e a tela de
+login explica isso quando acontece, em vez de mostrar erro genérico. As duas
+rotas existem e tratam os dois formatos (`/auth/callback` para o `?code=` e
+`/auth/confirm` para `token_hash`, inclusive o `pkce_`), então nenhum link
+configurado fica órfão.
+
+**3. URLs** — Authentication → URL Configuration:
+
+- **Site URL**: o domínio de produção (`https://sentinelagov.com`). Deixar
+  `http://localhost:3000` aqui faz links de email apontarem para a máquina do
+  desenvolvedor.
+- **Redirect URLs**: precisa conter `https://sentinelagov.com/auth/callback` e
+  `https://sentinelagov.com/auth/confirm`. Para desenvolver, acrescente também
+  `http://localhost:3000/**`.
 
 Depois, criar os segredos que o agendamento (pg_cron) usa para chamar a
 function — rodar **uma vez** no SQL Editor do projeto:

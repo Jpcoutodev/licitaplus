@@ -2,11 +2,17 @@
   Template do email de recuperação de senha (Supabase Auth).
   Cole em: Dashboard -> Authentication -> Emails -> Reset Password.
 
-  O link usa {{ .TokenHash }} apontando para /auth/confirm, e não
-  {{ .ConfirmationURL }}. A diferença importa: o ConfirmationURL passa pelo
-  fluxo PKCE, que só funciona se o link for aberto no MESMO navegador que pediu
-  a troca — quem pede no computador e abre no celular fica travado. Com o
-  token_hash, o servidor verifica o token e qualquer aparelho serve.
+  Usa {{ .ConfirmationURL }} e NÃO {{ .TokenHash }}.
+
+  Motivo: o app usa @supabase/ssr, que trabalha no fluxo PKCE. Nesse fluxo o
+  {{ .TokenHash }} vem com prefixo "pkce_" e não é um token de OTP — é um código
+  de autorização, que /auth/confirm rejeita com "Email link is invalid or has
+  expired". O ConfirmationURL passa pelo verificador do próprio Supabase e volta
+  para /auth/callback, que troca o código por sessão.
+
+  Vantagem prática: o endereço de retorno vem do redirectTo que o app envia, ou
+  seja, do domínio de quem pediu — funciona em produção e em desenvolvimento sem
+  depender do campo Site URL, que é um valor global só.
 -->
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
   <div style="height:4px;background:linear-gradient(90deg,#2563eb,#16a34a);border-radius:4px;"></div>
@@ -21,19 +27,20 @@
 
   <p style="margin:24px 0;">
     <a
-      href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery"
+      href="{{ .ConfirmationURL }}"
       style="display:inline-block;padding:12px 22px;border-radius:999px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:bold;"
     >Criar nova senha</a>
   </p>
 
   <p style="margin:0 0 16px 0;line-height:1.55;color:#6b7280;font-size:14px;">
-    O link vale por uma hora e só pode ser usado uma vez. Se ele expirar, peça
-    outro na tela de login, em "Esqueci minha senha".
+    O link vale por uma hora, só pode ser usado uma vez e precisa ser aberto no
+    mesmo navegador onde você pediu a troca. Se expirar, peça outro na tela de
+    login, em "Esqueci minha senha".
   </p>
 
   <p style="margin:0 0 16px 0;line-height:1.55;color:#6b7280;font-size:14px;">
     Se o botão não funcionar, copie e cole este endereço no navegador:<br>
-    <span style="word-break:break-all;">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery</span>
+    <span style="word-break:break-all;">{{ .ConfirmationURL }}</span>
   </p>
 
   <p style="margin:24px 0 0 0;padding-top:16px;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:12px;line-height:1.5;">
