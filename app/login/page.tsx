@@ -14,6 +14,10 @@ const ERROS_DE_LINK: Record<string, string> = {
     "O link de confirmação expirou ou já foi usado. Entre com email e senha.",
   confirmado_outro_local:
     "Seu email foi confirmado, mas o link foi aberto em outro navegador. Entre com email e senha para continuar.",
+  recuperacao_outro_navegador:
+    "Abra o link de recuperação no mesmo navegador onde você pediu a troca de senha. Se preferir, peça um link novo abaixo.",
+  recuperacao_expirada:
+    "O link de recuperação expirou ou já foi usado. Peça um link novo abaixo.",
 };
 
 export default function PaginaLogin() {
@@ -27,7 +31,9 @@ export default function PaginaLogin() {
 function Conteudo() {
   const roteador = useRouter();
   const parametros = useSearchParams();
-  const [modo, setModo] = useState<"entrar" | "cadastrar">("entrar");
+  const [modo, setModo] = useState<"entrar" | "cadastrar" | "recuperar">(
+    "entrar",
+  );
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -36,8 +42,12 @@ function Conteudo() {
 
   // Erro vindo do /auth/callback ou /auth/confirm.
   useEffect(() => {
+    if (parametros.get("recuperar") === "1") setModo("recuperar");
     const codigo = parametros.get("erro");
     if (!codigo) return;
+    // Erro de recuperação: já deixa a tela no modo de pedir um link novo, que
+    // é a única saída de quem não lembra a senha.
+    if (codigo.startsWith("recuperacao_")) setModo("recuperar");
     setErro(ERROS_DE_LINK[codigo] ?? decodeURIComponent(codigo));
   }, [parametros]);
 
@@ -49,6 +59,21 @@ function Conteudo() {
 
     const supabase = criarClientNavegador();
     try {
+      if (modo === "recuperar") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          // O link do email cria a sessão aqui e segue para a troca de senha.
+          redirectTo:
+            `${window.location.origin}/auth/callback?next=/nova-senha`,
+        });
+        if (error) throw error;
+        // Resposta igual exista ou não a conta: dizer "email não cadastrado"
+        // entregaria a lista de clientes a quem ficasse testando endereços.
+        setAviso(
+          "Se existir uma conta com esse email, enviamos um link para criar uma nova senha. Confira a caixa de entrada e o spam, e abra o link neste mesmo navegador.",
+        );
+        return;
+      }
+
       if (modo === "cadastrar") {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -98,8 +123,19 @@ function Conteudo() {
       </p>
       <div className="cartao">
       <h2 style={{ marginBottom: 16 }}>
-        {modo === "entrar" ? "Entrar" : "Criar conta"}
+        {modo === "entrar"
+          ? "Entrar"
+          : modo === "cadastrar"
+            ? "Criar conta"
+            : "Esqueci minha senha"}
       </h2>
+
+      {modo === "recuperar" && (
+        <p className="texto-suave" style={{ marginBottom: 14 }}>
+          Informe o email da conta e enviaremos um link para você criar uma
+          nova senha.
+        </p>
+      )}
 
       <form onSubmit={aoEnviar}>
         <div className="campo">
@@ -113,21 +149,26 @@ function Conteudo() {
             autoComplete="email"
           />
         </div>
-        <div className="campo">
-          <label htmlFor="senha">Senha</label>
-          <input
-            id="senha"
-            type="password"
-            required
-            minLength={8}
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            autoComplete={modo === "entrar" ? "current-password" : "new-password"}
-          />
-          {modo === "cadastrar" && (
-            <p className="ajuda">Mínimo de 8 caracteres.</p>
-          )}
-        </div>
+        {/* Recuperação pede só o email: senha é o que a pessoa não tem. */}
+        {modo !== "recuperar" && (
+          <div className="campo">
+            <label htmlFor="senha">Senha</label>
+            <input
+              id="senha"
+              type="password"
+              required
+              minLength={8}
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              autoComplete={modo === "entrar"
+                ? "current-password"
+                : "new-password"}
+            />
+            {modo === "cadastrar" && (
+              <p className="ajuda">Mínimo de 8 caracteres.</p>
+            )}
+          </div>
+        )}
 
         {erro && <p className="mensagem-erro">{erro}</p>}
         {aviso && <p className="mensagem-sucesso">{aviso}</p>}
@@ -137,7 +178,9 @@ function Conteudo() {
             ? "Enviando..."
             : modo === "entrar"
               ? "Entrar"
-              : "Criar conta"}
+              : modo === "cadastrar"
+                ? "Criar conta"
+                : "Enviar link de recuperação"}
         </button>
 
         {modo === "cadastrar" && (
@@ -154,6 +197,22 @@ function Conteudo() {
           </p>
         )}
       </form>
+
+      {modo === "entrar" && (
+        <p style={{ marginTop: 12 }}>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setModo("recuperar");
+              setErro(null);
+              setAviso(null);
+            }}
+          >
+            Esqueci minha senha
+          </a>
+        </p>
+      )}
 
       <p style={{ marginTop: 16 }}>
         {modo === "entrar" ? (
@@ -172,13 +231,14 @@ function Conteudo() {
           </>
         ) : (
           <>
-            Já tem conta?{" "}
+            {modo === "recuperar" ? "Lembrou a senha?" : "Já tem conta?"}{" "}
             <a
               href="#"
               onClick={(e) => {
                 e.preventDefault();
                 setModo("entrar");
                 setErro(null);
+                setAviso(null);
               }}
             >
               Entrar

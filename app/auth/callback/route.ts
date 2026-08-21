@@ -38,9 +38,19 @@ export async function GET(request: Request) {
 
   if (error) {
     // Caso clássico: o link foi aberto em outro aparelho/navegador. No PKCE o
-    // verificador fica no navegador que iniciou o cadastro, então a troca
-    // falha — e a orientação certa é entrar com email e senha.
-    return NextResponse.redirect(destino("/login?erro=confirmado_outro_local"));
+    // verificador fica no navegador que iniciou o fluxo, então a troca falha.
+    //
+    // A orientação depende do fluxo: em cadastro, dá para entrar com email e
+    // senha; em recuperação, não — quem está ali esqueceu a senha, e mandar
+    // "entre com email e senha" seria mandar a pessoa de volta ao problema.
+    const ehRecuperacao = proximo.startsWith("/nova-senha");
+    return NextResponse.redirect(
+      destino(
+        ehRecuperacao
+          ? "/login?erro=recuperacao_outro_navegador"
+          : "/login?erro=confirmado_outro_local",
+      ),
+    );
   }
 
   return NextResponse.redirect(destino(proximo));

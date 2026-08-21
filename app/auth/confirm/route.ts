@@ -30,11 +30,17 @@ export async function GET(request: Request) {
   });
 
   if (error) {
-    return NextResponse.redirect(destino("/login?erro=link_expirado"));
+    return NextResponse.redirect(
+      destino(
+        tipo === "recovery"
+          ? "/login?erro=recuperacao_expirada"
+          : "/login?erro=link_expirado",
+      ),
+    );
   }
 
-  // Recuperação de senha vai para a troca; o resto entra no painel.
+  // Recuperação de senha vai para a tela de definir a nova; o resto, ao painel.
   return NextResponse.redirect(
-    destino(tipo === "recovery" ? "/painel/configuracoes" : proximo),
+    destino(tipo === "recovery" ? "/nova-senha" : proximo),
   );
 }
