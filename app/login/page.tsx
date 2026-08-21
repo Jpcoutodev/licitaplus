@@ -104,6 +104,9 @@ function Conteudo() {
         roteador.refresh();
       }
     } catch (excecao) {
+      // O texto traduzido vai para a tela; o erro cru fica no console, que é
+      // onde dá para descobrir se o problema foi SMTP, limite ou credencial.
+      console.error("[auth]", modo, excecao);
       setErro(
         excecao instanceof Error
           ? traduzirErroAuth(excecao.message)
@@ -252,14 +255,27 @@ function Conteudo() {
 }
 
 function traduzirErroAuth(mensagem: string): string {
-  if (mensagem.includes("Invalid login credentials")) {
+  const texto = (mensagem ?? "").trim();
+
+  // Quando o envio de email falha no servidor, a API devolve corpo vazio e a
+  // mensagem chega como "{}" — que era o que aparecia na tela do usuário.
+  if (!texto || texto === "{}" || texto === "[object Object]") {
+    return "Não foi possível concluir agora. Tente novamente em alguns minutos; se continuar, fale com o suporte.";
+  }
+  if (/rate limit|too many requests|for security purposes/i.test(texto)) {
+    return "Muitos pedidos seguidos. Espere alguns minutos antes de tentar de novo.";
+  }
+  if (/sending|smtp|mail/i.test(texto)) {
+    return "Não conseguimos enviar o email agora. Tente novamente em alguns minutos.";
+  }
+  if (texto.includes("Invalid login credentials")) {
     return "Email ou senha incorretos.";
   }
-  if (mensagem.includes("already registered")) {
+  if (texto.includes("already registered")) {
     return "Este email já tem cadastro. Use a opção Entrar.";
   }
-  if (mensagem.toLowerCase().includes("password")) {
+  if (texto.toLowerCase().includes("password")) {
     return "Senha fraca: use ao menos 8 caracteres.";
   }
-  return mensagem;
+  return texto;
 }
